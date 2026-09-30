@@ -1,0 +1,25 @@
+[project]
+name = "flight-booking"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Mohit Kumar Singh", email = "mohit.singh.ectech@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.142.1",
+    "google-genai>=2.25.0",
+    "langgraph>=1.2.12",
+    "openai>=3.22.1",
+    "pydantic>=2.13.5",
+    "python-dotenv>=1.2.3",
+    "uvicorn>=0.54.0",
+]
+
+[project.scripts]
+flight-booking = "flight_booking:main"
+
+[build-system]
+requires = ["uv_build>=0.12.1,<0.13.0"]
+build-backend = "uv_build"
