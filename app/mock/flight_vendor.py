@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 
 from ..models import Airport, Cabin, Flight, SearchFlights, Stop, BookFlight
+from ..core.errors import FlightNotFound, InsufficientSeats
 
 
 AIRPORTS = {
@@ -174,7 +175,7 @@ def book_flight(request: BookFlight) -> dict:
             continue
 
         if flight.available_seats < request.passengers:
-            raise ValueError("Not enough seats available.")
+            raise InsufficientSeats(f"Not enough seats available for flight {request.flight_id}")
 
         return {
             "booking_id": f"BK-{flight.flight_id}-001",
@@ -183,7 +184,7 @@ def book_flight(request: BookFlight) -> dict:
             "passengers": request.passengers,
         }
 
-    raise ValueError("Flight not found.")
+    raise FlightNotFound(f"Flight {request.flight_id} not found.")
 
 def get_flight(flight_id: str) -> Flight | None:
     for flight in MOCK_FLIGHTS:

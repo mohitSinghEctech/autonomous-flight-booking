@@ -1,6 +1,9 @@
 from datetime import date, timedelta
 import json
 
+from pydantic import ValidationError
+from app.core.errors import InvalidToolArguments
+
 
 from .mock.flight_vendor import (
     book_flight as vendor_book_flight,
@@ -10,7 +13,10 @@ from .mock.flight_vendor import (
 from .models import SearchFlights, Flight, Cabin, BookFlight
 
 def execute_search_flights(arguments):
-    request = SearchFlights.model_validate(arguments)
+    try:
+        request = SearchFlights.model_validate(arguments)
+    except ValidationError as exc:
+        raise InvalidToolArguments(f"Invalid arguments for search_flights: {exc}") from exc
     result = search_flights(request)
     
     return json.dumps([
@@ -19,7 +25,10 @@ def execute_search_flights(arguments):
     ])
     
 def execute_book_flight(arguments):
-    request = BookFlight.model_validate(arguments)
+    try:
+        request = BookFlight.model_validate(arguments)
+    except ValidationError as exc:
+        raise InvalidToolArguments(f"Invalid arguments for book_flight: {exc}") from exc
     result = book_flight(request)
     
     return json.dumps(result)
