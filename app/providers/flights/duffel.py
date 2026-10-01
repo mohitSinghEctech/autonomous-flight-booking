@@ -1,6 +1,6 @@
 import os
 
-from app.models import Flight, SearchFlights, BookFlight, Stop, Airport, Cabin
+from app.models import Flight, Passenger, SearchFlights, BookFlight, Stop, Airport, Cabin
 from .base import FlightProvider
 
 import httpx
@@ -70,21 +70,83 @@ class DuffelFlightProvider(FlightProvider):
 
         return [map_duffel_offer(offer) for offer in offers]
 
-    async def book_flight(self, request: BookFlight) -> dict:
-        raise NotImplementedError
+    async def book_flight(
+        self,
+        request: BookFlight,
+        flight: Flight,
+        passengers: list[Passenger],
+    ) -> dict:
+        offer = await self._fetch_raw_offer(flight.provider_reference)
+        
+        if offer["payment_requirements"]["requires_instant_payment"]:
+            raise ValueError(
+                "This flight offer requires instant payment and cannot be held."
+            )
+
+        offer_passengers = offer["passengers"]
+
+        if len(offer_passengers) != len(passengers):
+            raise ValueError(
+                "Passenger count does not match the selected flight offer."
+            )
+
+        duffel_passengers = []
+
+        for offer_passenger, passenger in zip(
+            offer_passengers,
+            passengers,
+        ):
+            duffel_passengers.append({
+                "id": offer_passenger["id"],
+                "title": passenger.title,
+                "given_name": passenger.given_name,
+                "family_name": passenger.family_name,
+                "gender": passenger.gender,
+                "born_on": passenger.born_on.isoformat(),
+                "email": passenger.email,
+                "phone_number": passenger.phone_number,
+            })
+
+        payload = {
+            "data": {
+                "type": "hold",
+                "selected_offers": [
+                    flight.provider_reference
+                ],
+                "passengers": duffel_passengers,
+            }
+        }
+
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{self.base_url}/air/orders",
+                headers=self.headers,
+                json=payload,
+                timeout=30,
+            )
+
+            response.raise_for_status()
+
+            return response.json()["data"]
 
     async def fetch_flight_details(self, flight_id: str) -> Flight | None:
+        result = await self._fetch_raw_offer(flight_id)
+        return map_duffel_offer(result)
+    
+    async def _fetch_raw_offer(
+        self,
+        provider_reference: str,
+    ) -> dict:
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                f"{self.base_url}/air/offers/{flight_id}",
+                f"{self.base_url}/air/offers/{provider_reference}",
                 headers=self.headers,
                 timeout=30,
             )
 
             response.raise_for_status()
-            
-            result = response.json()["data"]
-            return map_duffel_offer(result)
+
+            return response.json()["data"]
     
 
 def map_duffel_offer(offer: dict) -> Flight:
@@ -127,8 +189,11 @@ def map_duffel_offer(offer: dict) -> Flight:
         first_segment["passengers"][0]["cabin"]["name"]
     )
 
+    payment_requirements = offer.get("payment_requirements", {})
+    
     return Flight(
         flight_id=offer["id"],
+        provider_reference=offer["id"],
         flight_name=offer["owner"]["name"],
         origin=origin,
         destination=destination,
@@ -139,5 +204,11 @@ def map_duffel_offer(offer: dict) -> Flight:
         cabin=cabin,
         available_seats=None,
         expires_at=offer.get("expires_at"),
+        requires_instant_payment=payment_requirements.get(
+            "requires_instant_payment"
+        ),
+        payment_required_by=payment_requirements.get(
+            "payment_required_by"
+        ),
         stops=stops,
     )

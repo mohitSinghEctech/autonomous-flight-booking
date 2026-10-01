@@ -25,3 +25,6 @@ class UpstreamUnavailable(AppError):
 class InvalidUpstreamResponse(AppError):
     pass
 
+class PassengerNotFound(AppError):
+    pass
+

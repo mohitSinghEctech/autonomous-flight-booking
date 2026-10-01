@@ -39,6 +39,7 @@ class Stop(BaseModel):
     
 class Flight(BaseModel):
     flight_id: str
+    provider_reference: str | None = None
     flight_name: str
     origin: Airport
     destination: Airport
@@ -49,9 +50,22 @@ class Flight(BaseModel):
     cabin: Cabin
     available_seats: int | None = None
     expires_at: datetime | None = None
+    requires_instant_payment: bool | None = None
+    payment_required_by: datetime | None = None
     stops: list[Stop]
     
 # Book Flights
 class BookFlight(BaseModel):
     flight_id: str
-    passengers: int = Field(gt=0)
+    passenger_ids: list[str] = Field(min_length=1)
+    
+#  Passenger
+class Passenger(BaseModel):
+    id: str
+    title: str
+    given_name: str
+    family_name: str
+    gender: str
+    born_on: date
+    email: str
+    phone_number: str
