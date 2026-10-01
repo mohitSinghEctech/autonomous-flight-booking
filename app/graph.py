@@ -10,14 +10,17 @@ from app.core.errors import (
     ToolNotFound, 
     AppError, 
     FlightNotFound,
-    UpstreamTimeout
+    UpstreamTimeout,
+    UpstreamRateLimited,
+    UpstreamUnavailable,
+    InvalidUpstreamResponse
 )
 
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import StateGraph, START, END
 # from langgraph.graph.message import add_messages
 from langgraph.types import interrupt, Command
-from openai import AsyncOpenAI, APITimeoutError
+from openai import AsyncOpenAI, APITimeoutError, RateLimitError, APIConnectionError
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -77,8 +80,16 @@ async def call_llm(state: AgentState):
                 }
             ]
         )
+        
+        if not response.choices:
+            raise InvalidUpstreamResponse("LLM provider returned an empty response.")
+            
     except APITimeoutError as exc:
         raise UpstreamTimeout("LLM request timed out.") from exc
+    except RateLimitError as exc:
+        raise UpstreamRateLimited("LLM rate limit exceeded.") from exc
+    except APIConnectionError as exc:
+        raise UpstreamUnavailable("LLM provider currently unavailable.") from exc
     
     return {
         "messages": [
@@ -171,6 +182,45 @@ async def safe_call_llm(state: AgentState):
                         "Please try again."
                     ),
                 }
+            ]
+        }
+    except UpstreamRateLimited:
+        return {
+            "messages": [
+                *state["messages"],
+                {
+                    "role": "assistant",
+                    "content": (
+                        "The AI service is currently receiving too many "
+                        "requests. Please try again shortly."
+                    ),
+                }
+            ]
+        }
+    except UpstreamUnavailable:
+        return {
+            "messages": [
+                *state["messages"],
+                {
+                    "role": "assistant",
+                    "content": (
+                        "The AI service is currently unavailable. "
+                        "Please try again shortly."
+                    ),
+                },
+            ]
+        }
+    except InvalidUpstreamResponse:
+        return {
+            "messages": [
+                *state["messages"],
+                {
+                    "role": "assistant",
+                    "content": (
+                        "I received an invalid response from the AI service. "
+                        "Please try again."
+                    ),
+                },
             ]
         }
     
