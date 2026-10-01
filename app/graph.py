@@ -4,7 +4,13 @@ import asyncio
 import json
 
 from app.models import SearchFlights, BookFlight
-from app.tools import TOOL_HANDLERS, fetch_flight_details
+from app.tools import (
+    TOOL_HANDLERS, 
+    fetch_flight_details,
+    search_flights_tool,
+    book_flight_tool,
+    get_saved_passengers_tool
+    )
 from app.core.errors import (
     ToolNotFound, 
     AppError, 
@@ -30,28 +36,6 @@ MAX_SECONDS = 1
 load_dotenv()
 llm_semaphore = asyncio.Semaphore(3)
 
-
-# Tools
-search_flights_tool = {
-    "name": "search_flights",
-    "description": (
-        "Search for available flights. "
-        "origin and destination must be IATA airport codes, "
-        "such as DEL for Delhi and DXB for Dubai."
-    ),
-    "parameters": SearchFlights.model_json_schema(),
-}
-
-book_flight_tool = {
-    "name": "book_flight",
-    "description": (
-        "Book a selected flight. "
-        "flight_id must be the exact flight_id returned by search_flights."
-    ),
-    "parameters": BookFlight.model_json_schema(),
-}
-
-
 client = AsyncOpenAI(
     api_key=os.getenv("LLM_API_KEY"),
 )
@@ -59,14 +43,16 @@ client = AsyncOpenAI(
 class AgentState(TypedDict):
     messages: list
     
-async def call_tool_with(tool_call, arguments):
+async def call_tool_with(tool_call, arguments, flight=None):
     tool_name = tool_call["function"]["name"]
     
     handler = TOOL_HANDLERS.get(tool_name)
     if handler is None:
         raise ToolNotFound(f"Unknown tool: {tool_name}")
-    result = await handler(arguments)
-    return result
+    
+    if tool_name == "book_flight":
+        return await handler(arguments, flight)
+    return await handler(arguments)
     
     
 async def call_llm(state: AgentState):
@@ -84,6 +70,10 @@ async def call_llm(state: AgentState):
                     {
                         "type": "function",
                         "function": book_flight_tool
+                    },
+                    {
+                        "type": "function",
+                        "function": get_saved_passengers_tool
                     }
                 ]
             )
@@ -112,6 +102,8 @@ async def execute_tools(state: AgentState):
     for tool_call in last_message["tool_calls"]:
         print("Tool name: ", tool_call["function"]["name"])
         
+        flight = None
+        
         try:
             arguments = json.loads(tool_call["function"]["arguments"])
             
@@ -126,8 +118,8 @@ async def execute_tools(state: AgentState):
                     f"{flight.origin.airport_code} to {flight.destination.airport_code}. "
                     f"Departure: {flight.departure_datetime}. "
                     f"Arrival: {flight.arrival_datetime}. "
-                    f"Price: {flight.price} {flight.currency} total."
-                    f"Passengers: {arguments['passengers']}. "
+                    f"Price: {flight.price} {flight.currency} total. "
+                    f"Passengers: {len(arguments['passenger_ids'])}. "
                     f"Would you like me to proceed with the booking?"
                 )
                 approval = interrupt({
@@ -149,7 +141,7 @@ async def execute_tools(state: AgentState):
                     continue
         
         
-            result = await call_tool_with(tool_call, arguments)
+            result = await call_tool_with(tool_call, arguments, flight)
         except json.JSONDecodeError:
             result = json.dumps({
                 "error": (
@@ -288,7 +280,7 @@ async def main():
             config=config
         )
 
-    print(result)
+    print(result["messages"][-1].get("content"))
 
 if __name__ == "__main__":
     asyncio.run(main())
