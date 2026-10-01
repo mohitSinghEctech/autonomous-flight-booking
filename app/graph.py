@@ -4,9 +4,8 @@ import asyncio
 import json
 
 from app.models import SearchFlights, BookFlight
-from app.tools import TOOL_HANDLERS, get_flight
+from app.tools import TOOL_HANDLERS, fetch_flight_details
 from app.core.errors import (
-    InvalidToolArguments, 
     ToolNotFound, 
     AppError, 
     FlightNotFound,
@@ -15,6 +14,7 @@ from app.core.errors import (
     UpstreamUnavailable,
     InvalidUpstreamResponse
 )
+from app.core.rate_limiter import llm_rate_limiter
 
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import StateGraph, START, END
@@ -23,7 +23,12 @@ from langgraph.types import interrupt, Command
 from openai import AsyncOpenAI, APITimeoutError, RateLimitError, APIConnectionError
 from dotenv import load_dotenv
 
+
+MAX_REQUESTS = 5
+MAX_SECONDS = 1
+
 load_dotenv()
+llm_semaphore = asyncio.Semaphore(3)
 
 
 # Tools
@@ -54,32 +59,34 @@ client = AsyncOpenAI(
 class AgentState(TypedDict):
     messages: list
     
-def call_tool_with(tool_call, arguments):
+async def call_tool_with(tool_call, arguments):
     tool_name = tool_call["function"]["name"]
     
     handler = TOOL_HANDLERS.get(tool_name)
     if handler is None:
         raise ToolNotFound(f"Unknown tool: {tool_name}")
-    result = handler(arguments)
+    result = await handler(arguments)
     return result
     
     
 async def call_llm(state: AgentState):
     try:
-        response = await client.chat.completions.create(
-            model=os.getenv("LLM_MODEL"),
-            messages=state["messages"],
-            tools=[
-                {
-                    "type": "function",
-                    "function": search_flights_tool
-                },
-                {
-                    "type": "function",
-                    "function": book_flight_tool
-                }
-            ]
-        )
+        await llm_rate_limiter.acquire()
+        async with llm_semaphore:
+            response = await client.chat.completions.create(
+                model=os.getenv("LLM_MODEL"),
+                messages=state["messages"],
+                tools=[
+                    {
+                        "type": "function",
+                        "function": search_flights_tool
+                    },
+                    {
+                        "type": "function",
+                        "function": book_flight_tool
+                    }
+                ]
+            )
         
         if not response.choices:
             raise InvalidUpstreamResponse("LLM provider returned an empty response.")
@@ -109,7 +116,7 @@ async def execute_tools(state: AgentState):
             arguments = json.loads(tool_call["function"]["arguments"])
             
             if tool_call["function"]["name"] == "book_flight":
-                flight = get_flight(arguments["flight_id"])
+                flight = await fetch_flight_details(arguments["flight_id"])
                             
                 if flight is None:
                     raise FlightNotFound(f"Flight {arguments['flight_id']} not found.")
@@ -119,7 +126,7 @@ async def execute_tools(state: AgentState):
                     f"{flight.origin.airport_code} to {flight.destination.airport_code}. "
                     f"Departure: {flight.departure_datetime}. "
                     f"Arrival: {flight.arrival_datetime}. "
-                    f"Price: {flight.price} {flight.currency} per passenger. "
+                    f"Price: {flight.price} {flight.currency} total."
                     f"Passengers: {arguments['passengers']}. "
                     f"Would you like me to proceed with the booking?"
                 )
@@ -142,7 +149,7 @@ async def execute_tools(state: AgentState):
                     continue
         
         
-            result = call_tool_with(tool_call, arguments)
+            result = await call_tool_with(tool_call, arguments)
         except json.JSONDecodeError:
             result = json.dumps({
                 "error": (
@@ -262,7 +269,7 @@ async def main():
             "messages": [
                 {
                     "role": "user",
-                    "content": "Book flight AI1000 for 2 passengers."
+                    "content": "Find economy flights from DEL to DXB for 2 passengers on 2026-10-02 and book the cheapest one. Also provide me comparison for prices for different flights"
                 }
             ]
         },

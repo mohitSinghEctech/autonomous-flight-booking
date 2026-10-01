@@ -47,7 +47,8 @@ class Flight(BaseModel):
     price: float
     currency: str
     cabin: Cabin
-    available_seats: int
+    available_seats: int | None = None
+    expires_at: datetime | None = None
     stops: list[Stop]
     
 # Book Flights

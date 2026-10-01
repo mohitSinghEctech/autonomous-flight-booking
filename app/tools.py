@@ -1,46 +1,40 @@
-from datetime import date, timedelta
 import json
 
 from pydantic import ValidationError
 from app.core.errors import InvalidToolArguments
 
+from app.providers.all_providers import flight_provider
+from .models import SearchFlights, Flight, BookFlight
 
-from .mock.flight_vendor import (
-    book_flight as vendor_book_flight,
-    search_flights as vendor_search_flights,
-    get_flight as vendor_get_flight,
-)
-from .models import SearchFlights, Flight, Cabin, BookFlight
-
-def execute_search_flights(arguments):
+async def execute_search_flights(arguments):
     try:
         request = SearchFlights.model_validate(arguments)
     except ValidationError as exc:
         raise InvalidToolArguments(f"Invalid arguments for search_flights: {exc}") from exc
-    result = search_flights(request)
+    result = await search_flights(request)
     
     return json.dumps([
         flight.model_dump(mode="json")
         for flight in result
     ])
     
-def execute_book_flight(arguments):
+async def execute_book_flight(arguments):
     try:
         request = BookFlight.model_validate(arguments)
     except ValidationError as exc:
         raise InvalidToolArguments(f"Invalid arguments for book_flight: {exc}") from exc
-    result = book_flight(request)
+    result = await book_flight(request)
     
     return json.dumps(result)
 
-def search_flights(request_model: SearchFlights) -> list[Flight]:
-    return vendor_search_flights(request_model)
+async def search_flights(request_model: SearchFlights) -> list[Flight]:
+    return await flight_provider.search_flights(request_model)
 
-def book_flight(request_model: BookFlight):
-    return vendor_book_flight(request_model)
+async def book_flight(request_model: BookFlight):
+    return await flight_provider.book_flight(request_model)
 
-def get_flight(flight_id: str) -> Flight | None:
-    return vendor_get_flight(flight_id)
+async def fetch_flight_details(flight_id: str) -> Flight | None:
+    return await flight_provider.fetch_flight_details(flight_id)
 
 TOOL_HANDLERS = {
     "search_flights": execute_search_flights,
