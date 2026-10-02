@@ -3,7 +3,7 @@ import os
 import asyncio
 import json
 
-from app.models import SearchFlights, BookFlight
+from app.models import Booking
 from app.tools import (
     TOOL_HANDLERS, 
     fetch_flight_details,
@@ -42,6 +42,7 @@ client = AsyncOpenAI(
 
 class AgentState(TypedDict):
     messages: list
+    booking: Booking | None
     
 async def call_tool_with(tool_call, arguments, flight=None):
     tool_name = tool_call["function"]["name"]
@@ -99,6 +100,7 @@ async def execute_tools(state: AgentState):
     last_message = state["messages"][-1]
     
     tool_messages = []
+    booking = None
     for tool_call in last_message["tool_calls"]:
         print("Tool name: ", tool_call["function"]["name"])
         
@@ -142,6 +144,10 @@ async def execute_tools(state: AgentState):
         
         
             result = await call_tool_with(tool_call, arguments, flight)
+            
+            if tool_call["function"]["name"] == "book_flight":
+                booking = result
+            
         except json.JSONDecodeError:
             result = json.dumps({
                 "error": (
@@ -163,7 +169,8 @@ async def execute_tools(state: AgentState):
         "messages": [
             *state["messages"],
             *tool_messages
-        ]
+        ],
+        "booking": booking
     }
     
 
@@ -281,6 +288,9 @@ async def main():
         )
 
     print(result["messages"][-1].get("content"))
+    
+    print("\nFinal booking state:")
+    print(result.get("booking"))
 
 if __name__ == "__main__":
     asyncio.run(main())

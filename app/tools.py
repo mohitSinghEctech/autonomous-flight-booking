@@ -6,7 +6,7 @@ from app.providers.user.passengers_mock import (
     )
 from app.core.errors import InvalidToolArguments
 from app.providers.all_providers import flight_provider
-from .models import SearchFlights, Flight, BookFlight
+from .models import SearchFlights, Flight, BookFlight, BookingLifecycle, Booking, booking_lifecycle_from_status
 
 from pydantic import ValidationError
 
@@ -49,10 +49,20 @@ async def search_flights(request_model: SearchFlights) -> list[Flight]:
 
 async def book_flight(request_model: BookFlight, flight: Flight):
     passengers = get_passengers_by_ids(request_model.passenger_ids)
-    return await flight_provider.book_flight(
+    result = await flight_provider.book_flight(
         request_model, 
         flight,
         passengers=passengers
+    )
+    lifecycle = booking_lifecycle_from_status(result.status)
+    
+    return Booking(
+        booking_id=result.booking_id,
+        booking_reference=result.booking_reference,
+        lifecycle=lifecycle,
+        total_amount=result.total_amount,
+        currency=result.currency,
+        payment_required_by=result.payment_required_by
     )
 
 async def fetch_flight_details(flight_id: str) -> Flight | None:
@@ -79,8 +89,10 @@ search_flights_tool = {
 book_flight_tool = {
     "name": "book_flight",
     "description": (
-        "Book a selected flight. "
-        "flight_id must be the exact flight_id returned by search_flights."
+        "Place a selected flight on hold. "
+        "This does not complete payment or confirm the booking. "
+        "flight_id must be the exact flight_id returned by search_flights. "
+        "passenger_ids must be IDs returned by get_saved_passengers."
     ),
     "parameters": BookFlight.model_json_schema(),
 }
