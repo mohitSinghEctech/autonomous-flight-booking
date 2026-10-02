@@ -101,3 +101,17 @@ class Booking(BaseModel):
     total_amount: float
     currency: str
     payment_required_by: datetime | None = None
+    
+# Payment
+class PaymentStatus(str, Enum):
+    CREATED = "created"
+    PENDING = "pending"
+    PAID = "paid"
+    FAILED = "failed"
+    
+class PaymentResult(BaseModel):
+    payment_id: str
+    status: PaymentStatus
+    amount: float
+    currency: str
+    payment_session_id: str | None = None

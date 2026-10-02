@@ -5,7 +5,7 @@ from app.providers.user.passengers_mock import (
     get_passengers_by_ids
     )
 from app.core.errors import InvalidToolArguments
-from app.providers.all_providers import flight_provider
+from app.providers.all_providers import flight_provider, payment_provider
 from .models import SearchFlights, Flight, BookFlight, BookingLifecycle, Booking, booking_lifecycle_from_status
 
 from pydantic import ValidationError
@@ -43,6 +43,36 @@ async def execute_get_saved_passengers(arguments=None):
         }
         for passenger in passengers
     ])
+    
+async def execute_create_payment(booking: Booking):
+    if booking is None:
+        raise InvalidToolArguments("No booking available to create payment for.")
+    
+    if booking.lifecycle != BookingLifecycle.HELD:
+        raise InvalidToolArguments(
+            "Payment can only be created for a held booking."
+        )
+        
+    result = await payment_provider.create_payment(
+        booking_id=booking.booking_id,
+        amount=booking.total_amount,
+        currency=booking.currency
+    )
+    
+    return json.dumps(result.model_dump(mode="json"))
+
+async def execute_complete_payment(payment: dict):
+    if payment is None:
+        raise InvalidToolArguments("There is no payment available to complete.")
+
+    payment_id = payment.get("payment_id")
+
+    if not payment_id:
+        raise InvalidToolArguments("Payment ID is missing.")
+
+    result = await payment_provider.complete_payment(payment_id, payment.get("amount"), currency=payment.get("currency"))
+
+    return json.dumps(result.model_dump(mode="json"))
 
 async def search_flights(request_model: SearchFlights) -> list[Flight]:
     return await flight_provider.search_flights(request_model)
@@ -72,7 +102,9 @@ async def fetch_flight_details(flight_id: str) -> Flight | None:
 TOOL_HANDLERS = {
     "search_flights": execute_search_flights,
     "book_flight": execute_book_flight,
-    "get_saved_passengers": execute_get_saved_passengers
+    "get_saved_passengers": execute_get_saved_passengers,
+    "create_payment": execute_create_payment,
+    "complete_payment": execute_complete_payment,
 }
 
 # Tools
@@ -102,6 +134,37 @@ get_saved_passengers_tool = {
     "description": (
         "Get the passengers saved in the customer's profile. "
         "Use their passenger IDs when booking a flight."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": False,
+    },
+}
+
+create_payment_tool = {
+    "name": "create_payment",
+    "description": (
+        "Create a payment for the current held booking. "
+        "Use this only when the current booking lifecycle is HELD "
+        "and the user wants to start the payment process. "
+        "Do not use this for a booking that is already AWAITING_PAYMENT "
+        "or when the user wants to complete an existing payment."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": False,
+    },
+}
+
+complete_payment_tool = {
+    "name": "complete_payment",
+    "description": (
+        "Complete the existing payment for the current booking. "
+        "Use this when a payment has already been created and the user "
+        "wants to complete or pay for it. "
+        "Do not create a new payment."
     ),
     "parameters": {
         "type": "object",
