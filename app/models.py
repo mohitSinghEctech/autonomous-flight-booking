@@ -9,6 +9,22 @@ class Cabin(str, Enum):
     ECONOMY = "economy"
     BUSINESS = "business"
     FIRST = "first"
+    
+class BookingStatus(str, Enum):
+    HOLD = "hold"
+    AWAITING_PAYMENT = "awaiting_payment"
+    CONFIRMED = "confirmed"
+    
+class BookingLifecycle(str, Enum):
+    AWAITING_APPROVAL = "awaiting_approval"
+    HELD = "held"
+    AWAITING_PAYMENT = "awaiting_payment"
+    CONFIRMED = "confirmed"
+    
+def booking_lifecycle_from_status(status: BookingStatus) -> BookingLifecycle:
+    if status == BookingStatus.HOLD:
+        return BookingLifecycle.HELD
+    raise ValueError(f"Unsupported booking status: {status}")
 
 class SearchFlights(BaseModel):
     origin: str
@@ -73,7 +89,15 @@ class Passenger(BaseModel):
 class BookingResult(BaseModel):
     booking_id: str
     booking_reference: str
-    status: str
+    status: BookingStatus
+    total_amount: float
+    currency: str
+    payment_required_by: datetime | None = None
+    
+class Booking(BaseModel):
+    booking_id: str
+    booking_reference: str
+    lifecycle: BookingLifecycle
     total_amount: float
     currency: str
     payment_required_by: datetime | None = None
