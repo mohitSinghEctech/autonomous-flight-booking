@@ -28,9 +28,10 @@ async def execute_book_flight(arguments, flight: Flight):
         request = BookFlight.model_validate(arguments)
     except ValidationError as exc:
         raise InvalidToolArguments(f"Invalid arguments for book_flight: {exc}") from exc
+    
     result = await book_flight(request, flight)
     
-    return json.dumps(result)
+    return json.dumps(result.model_dump(mode="json"))
 
 async def execute_get_saved_passengers(arguments=None):
     passengers = load_saved_passengers()

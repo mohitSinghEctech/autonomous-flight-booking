@@ -69,3 +69,11 @@ class Passenger(BaseModel):
     born_on: date
     email: str
     phone_number: str
+    
+class BookingResult(BaseModel):
+    booking_id: str
+    booking_reference: str
+    status: str
+    total_amount: float
+    currency: str
+    payment_required_by: datetime | None = None
