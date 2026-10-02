@@ -1,6 +1,6 @@
 import os
 
-from app.models import Flight, Passenger, SearchFlights, BookFlight, Stop, Airport, Cabin
+from app.models import Flight, Passenger, SearchFlights, BookFlight, Stop, Airport, Cabin, BookingResult
 from .base import FlightProvider
 
 import httpx
@@ -75,7 +75,7 @@ class DuffelFlightProvider(FlightProvider):
         request: BookFlight,
         flight: Flight,
         passengers: list[Passenger],
-    ) -> dict:
+    ) -> BookingResult:
         offer = await self._fetch_raw_offer(flight.provider_reference)
         
         if offer["payment_requirements"]["requires_instant_payment"]:
@@ -127,7 +127,15 @@ class DuffelFlightProvider(FlightProvider):
 
             response.raise_for_status()
 
-            return response.json()["data"]
+            result = response.json()["data"]
+            return BookingResult(
+                booking_id=result["id"],
+                booking_reference=result["booking_reference"],
+                status=result["type"],
+                total_amount=float(result["total_amount"]),
+                currency=result["total_currency"],
+                payment_required_by=result["payment_status"].get("payment_required_by")
+            )
 
     async def fetch_flight_details(self, flight_id: str) -> Flight | None:
         result = await self._fetch_raw_offer(flight_id)

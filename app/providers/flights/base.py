@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from app.models import Flight, Passenger, SearchFlights, BookFlight
+from app.models import Flight, Passenger, SearchFlights, BookFlight, BookingResult
 
 class FlightProvider(ABC):
     @abstractmethod
@@ -7,7 +7,7 @@ class FlightProvider(ABC):
         pass
     
     @abstractmethod
-    async def book_flight(self, request: BookFlight, flight: Flight, passengers: list[Passenger]) -> dict:
+    async def book_flight(self, request: BookFlight, flight: Flight, passengers: list[Passenger]) -> BookingResult:
         pass
     
     @abstractmethod
