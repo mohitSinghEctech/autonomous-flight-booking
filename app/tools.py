@@ -7,8 +7,11 @@ from app.providers.user.passengers_mock import (
 from app.core.errors import InvalidToolArguments
 from app.providers.all_providers import flight_provider, payment_provider
 from .models import SearchFlights, Flight, BookFlight, BookingLifecycle, Booking, booking_lifecycle_from_status
+from app.mcp.client import FlightMCPClient
 
 from pydantic import ValidationError
+
+flight_mcp_client = FlightMCPClient()
 
 
 async def execute_search_flights(arguments):
@@ -75,7 +78,20 @@ async def execute_complete_payment(payment: dict):
     return json.dumps(result.model_dump(mode="json"))
 
 async def search_flights(request_model: SearchFlights) -> list[Flight]:
-    return await flight_provider.search_flights(request_model)
+    result = await flight_mcp_client.search_flights(
+        origin=request_model.origin,
+        destination=request_model.destination,
+        date=request_model.date.isoformat(),
+        passengers=request_model.passengers,
+        cabin=request_model.cabin.value,
+    )
+
+    decoded = json.loads(result)
+
+    return [
+        Flight.model_validate(flight)
+        for flight in decoded
+    ]
 
 async def book_flight(request_model: BookFlight, flight: Flight):
     passengers = get_passengers_by_ids(request_model.passenger_ids)

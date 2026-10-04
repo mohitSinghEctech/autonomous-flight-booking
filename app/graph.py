@@ -373,6 +373,10 @@ async def main():
             config=config
         )
         
+    if result.get("booking") is None:
+        print("Stopping workflow")
+        return
+        
     print_state("BOOKING CREATED", result)
     
     result = await graph.ainvoke(
