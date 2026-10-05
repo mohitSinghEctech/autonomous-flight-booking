@@ -1,11 +1,12 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from enum import Enum
 
 from sqlalchemy import (
     String,
     ForeignKey,
+    Date,
     DateTime,
     Enum as SQLEnum,
     Numeric,
@@ -76,6 +77,33 @@ class Passenger(Base):
     family_name: Mapped[str] = mapped_column(
         String(100),
         nullable=False,
+    )
+
+    # Travel details the flight provider needs to issue a booking.
+    # Nullable so profiles can be created before they are complete.
+    title: Mapped[str | None] = mapped_column(
+        String(10),
+        nullable=True,
+    )
+
+    gender: Mapped[str | None] = mapped_column(
+        String(10),
+        nullable=True,
+    )
+
+    born_on: Mapped[date | None] = mapped_column(
+        Date,
+        nullable=True,
+    )
+
+    email: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
+    phone_number: Mapped[str | None] = mapped_column(
+        String(30),
+        nullable=True,
     )
 
     user_id: Mapped[uuid.UUID] = mapped_column(
@@ -250,6 +278,13 @@ class Booking(Base):
         String(50),
         unique=True,
         nullable=False,
+    )
+
+    # The booking's ID at the flight provider (e.g. a Duffel order ID).
+    # Never the same thing as `id`, which is our own database UUID.
+    provider_booking_id: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
     )
 
     booking_date: Mapped[datetime] = mapped_column(

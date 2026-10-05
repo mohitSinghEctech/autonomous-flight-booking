@@ -15,8 +15,26 @@ class UserRepository:
         self,
         user_id: uuid.UUID,
     ) -> User | None:
+
         result = await self.session.execute(
             select(User).where(User.id == user_id)
         )
 
         return result.scalar_one_or_none()
+
+    async def create_user(
+        self,
+        given_name: str,
+        family_name: str,
+    ) -> User:
+
+        user = User(
+            given_name=given_name,
+            family_name=family_name,
+        )
+
+        self.session.add(user)
+
+        await self.session.flush()
+
+        return user

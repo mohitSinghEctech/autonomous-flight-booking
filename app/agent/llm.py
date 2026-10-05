@@ -1,0 +1,179 @@
+import asyncio
+import os
+
+from dotenv import load_dotenv
+from openai import APIConnectionError, APITimeoutError, AsyncOpenAI, RateLimitError
+
+from app.agent.state import AgentState
+from app.core.errors import (
+    InvalidUpstreamResponse,
+    UpstreamRateLimited,
+    UpstreamTimeout,
+    UpstreamUnavailable,
+)
+from app.core.rate_limiter import llm_rate_limiter
+from app.models import BookFlight, SearchFlights
+
+
+load_dotenv()
+
+llm_semaphore = asyncio.Semaphore(3)
+
+client = AsyncOpenAI(
+    api_key=os.getenv("LLM_API_KEY"),
+)
+
+
+NO_ARGUMENTS = {
+    "type": "object",
+    "properties": {},
+    "additionalProperties": False,
+}
+
+# What the LLM is allowed to ask for. Each name maps to a handler in tools.py.
+TOOLS = [
+    {
+        "name": "search_flights",
+        "description": (
+            "Search for available flights. "
+            "origin and destination must be IATA airport codes, "
+            "such as DEL for Delhi and DXB for Dubai."
+        ),
+        "parameters": SearchFlights.model_json_schema(),
+    },
+    {
+        "name": "book_flight",
+        "description": (
+            "Place a selected flight on hold. "
+            "This does not complete payment or confirm the booking. "
+            "flight_id must be the exact flight_id returned by search_flights. "
+            "passenger_ids must be IDs returned by get_saved_passengers."
+        ),
+        "parameters": BookFlight.model_json_schema(),
+    },
+    {
+        "name": "get_saved_passengers",
+        "description": (
+            "Get the passengers saved in the customer's profile. "
+            "Use their passenger IDs when booking a flight."
+        ),
+        "parameters": NO_ARGUMENTS,
+    },
+    {
+        "name": "create_payment",
+        "description": (
+            "Create a payment for the current held booking. "
+            "Use this only when the current booking lifecycle is HELD "
+            "and the user wants to start the payment process. "
+            "Do not use this for a booking that is already AWAITING_PAYMENT "
+            "or when the user wants to complete an existing payment."
+        ),
+        "parameters": NO_ARGUMENTS,
+    },
+    {
+        "name": "complete_payment",
+        "description": (
+            "Complete the existing payment for the current booking. "
+            "Use this when a payment has already been created and the user "
+            "wants to complete or pay for it. "
+            "Do not create a new payment."
+        ),
+        "parameters": NO_ARGUMENTS,
+    },
+]
+
+
+def build_messages(state: AgentState) -> list[dict]:
+    """Conversation history, plus the app's booking/payment state if any."""
+
+    messages = list(state["messages"])
+
+    booking = state.get("booking")
+    payment = state.get("payment")
+
+    if booking:
+        payment_status = payment["status"] if payment else "none"
+
+        messages.insert(
+            0,
+            {
+                "role": "system",
+                "content": (
+                    f"Application booking state: {booking['lifecycle']}. "
+                    f"Application payment state: {payment_status}. "
+
+                    "If the booking lifecycle is HELD and the user wants to start "
+                    "payment, call create_payment. "
+
+                    "If the payment status is CREATED and the user wants to complete "
+                    "the payment, call complete_payment. "
+
+                    "Do not ask the user for booking ID, payment ID, amount, or currency. "
+                    "The application provides those values."
+                ),
+            },
+        )
+
+    return messages
+
+
+async def call_llm(state: AgentState):
+    try:
+        await llm_rate_limiter.acquire()
+
+        async with llm_semaphore:
+            response = await client.chat.completions.create(
+                model=os.getenv("LLM_MODEL"),
+                messages=build_messages(state),
+                tools=[
+                    {"type": "function", "function": tool}
+                    for tool in TOOLS
+                ],
+            )
+
+        if not response.choices:
+            raise InvalidUpstreamResponse("LLM provider returned an empty response.")
+
+    except APITimeoutError as exc:
+        raise UpstreamTimeout("LLM request timed out.") from exc
+    except RateLimitError as exc:
+        raise UpstreamRateLimited("LLM rate limit exceeded.") from exc
+    except APIConnectionError as exc:
+        raise UpstreamUnavailable("LLM provider currently unavailable.") from exc
+
+    return {
+        "messages": [response.choices[0].message.model_dump()]
+    }
+
+
+FALLBACK_REPLIES = {
+    UpstreamTimeout: (
+        "I'm sorry, but the flight service is temporarily unavailable. "
+        "Please try again."
+    ),
+    UpstreamRateLimited: (
+        "The AI service is currently receiving too many "
+        "requests. Please try again shortly."
+    ),
+    UpstreamUnavailable: (
+        "The AI service is currently unavailable. "
+        "Please try again shortly."
+    ),
+    InvalidUpstreamResponse: (
+        "I received an invalid response from the AI service. "
+        "Please try again."
+    ),
+}
+
+
+async def safe_call_llm(state: AgentState):
+    """LLM node: upstream failures become a polite assistant reply."""
+
+    try:
+        return await call_llm(state)
+    except tuple(FALLBACK_REPLIES) as exc:
+        return {
+            "messages": [
+                {"role": "assistant", "content": FALLBACK_REPLIES[type(exc)]}
+            ]
+        }
