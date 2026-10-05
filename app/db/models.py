@@ -442,6 +442,10 @@ class Payment(Base):
             "provider_payment_id",
             name="uq_payment_provider_payment_id",
         ),
+        UniqueConstraint(
+            "booking_id",
+            name="uq_payment_booking_id",
+        ),
         Index(
             "ix_payments_booking_id",
             "booking_id",

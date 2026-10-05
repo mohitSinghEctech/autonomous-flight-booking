@@ -41,6 +41,14 @@ class PaymentService:
 
         if booking.status != BookingStatus.HELD:
             raise AppError("Payment can only be created for a held booking.")
+        
+        # Check if payment already exists
+        existing_payment = (
+            await self.payment_provider.get_active_payment_for_booking(booking.id)
+        )
+        
+        if existing_payment is not None:
+            return (existing_payment, booking)
 
         # Our database booking ID is the order ID at the payment provider
         result = await self.payment_provider.create_payment(
@@ -83,19 +91,25 @@ class PaymentService:
             raise AppError("No payment has been created for this booking.")
 
         payment = payments[0]  # newest first
+        
+        # Return if already paid
+        if payment.status == PaymentStatus.PAID:
+            return payment, booking
 
         result = await self.payment_provider.complete_payment(
             payment.provider_payment_id,
             float(payment.amount),
             payment.currency,
         )
+        
+        new_status = PaymentStatus(result.status.value)
 
         await self.payment_repository.update_status(
             payment.id,
-            PaymentStatus(result.status.value),
+            new_status,
         )
 
-        if payment.status == PaymentStatus.PAID:
+        if new_status == PaymentStatus.PAID:
             await self.booking_repository.update_status(
                 booking.id,
                 BookingStatus.CONFIRMED,
