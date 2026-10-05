@@ -1,5 +1,6 @@
 import os
 
+from app.core.errors import AppError
 from app.models import Flight, Passenger, SearchFlights, BookFlight, Stop, Airport, Cabin, BookingResult
 from .base import FlightProvider
 
@@ -79,14 +80,14 @@ class DuffelFlightProvider(FlightProvider):
         offer = await self._fetch_raw_offer(flight.provider_reference)
         
         if offer["payment_requirements"]["requires_instant_payment"]:
-            raise ValueError(
+            raise AppError(
                 "This flight offer requires instant payment and cannot be held."
             )
 
         offer_passengers = offer["passengers"]
 
         if len(offer_passengers) != len(passengers):
-            raise ValueError(
+            raise AppError(
                 "Passenger count does not match the selected flight offer."
             )
 

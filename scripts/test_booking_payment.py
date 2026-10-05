@@ -1,7 +1,6 @@
 import asyncio
-from unittest import result
 
-from app.graph import graph
+from app.agent.graph import graph
 from langgraph.types import Command
 
 
@@ -23,7 +22,11 @@ async def main():
                         "on 2026-10-10 and book the cheapest one."
                     ),
                 }
-            ]
+            ],
+            "user_id": "eeb6ff6a-c66f-4874-a5aa-7c773962e14e",
+            "booking": None,
+            "payment": None,
+            "db_booking_id": None,
         },
         config=config,
     )
