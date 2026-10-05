@@ -119,3 +119,23 @@ class PaymentRepository:
         await self.session.flush()
 
         return event
+    
+    async def get_active_payment_for_booking(
+        self,
+        booking_id: uuid.UUID
+    ) -> Payment | None:
+        result = await self.session.execute(
+            select(Payment)
+            .where(
+                Payment.booking_id == booking_id,
+                Payment.status.in_([
+                    PaymentStatus.CREATED,
+                    PaymentStatus.PENDING,
+                    PaymentStatus.PAID,
+                    
+                ]),
+            )
+            .order_by(Payment.created_at.desc())
+        )
+        
+        return result.scalar_one_or_none()
