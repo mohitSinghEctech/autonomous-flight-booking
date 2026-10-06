@@ -9,12 +9,14 @@ Errors are always {"error": {"code", "message", "retryable"}} (see errors.py).
 import asyncio
 import json
 import logging
-import os
+from datetime import datetime, timezone
 
-from fastapi import APIRouter, Header, Request
+from fastapi import APIRouter, Depends, Header, Request
 from fastapi.responses import JSONResponse, StreamingResponse
+from sqlalchemy import text
 
 from app.api import runner
+from app.api.auth import current_user_id
 from app.api.errors import ApiError
 from app.api.event_bus import event_bus
 from app.api.events import (
@@ -29,12 +31,10 @@ from app.api.progress import publish_message
 from app.api.sessions import Session, session_store
 from app.api.turns import turn_manager
 from app.api.views import local_time
+from app.db.session import SessionLocal
 from app.providers import all_providers
 from app.providers.payment.cashfree import parse_webhook
 
-
-# Until Firebase auth is wired (contract §2), every session belongs to this user.
-DEMO_USER_ID = os.getenv("DEMO_USER_ID", "eeb6ff6a-c66f-4874-a5aa-7c773962e14e")
 
 HEARTBEAT_SECONDS = 15
 
@@ -52,8 +52,22 @@ def accepted(turn_id: str | None = None) -> JSONResponse:
     return JSONResponse({"accepted": True, "turn_id": turn_id}, status_code=202)
 
 
-def get_session(thread_id: str) -> Session:
-    return session_store.ensure(thread_id, DEMO_USER_ID)
+async def get_session(thread_id: str, user_id: str) -> Session:
+    """The caller's session. Someone else's thread looks exactly like a missing one (404),
+    so thread ids can't be probed. An unknown id (e.g. a very old tab) starts fresh."""
+
+    if len(thread_id) > 64:
+        raise ApiError(404, "session_not_found", "Conversation not found.")
+
+    session = await session_store.load(thread_id)
+
+    if session is None:
+        return await session_store.create(user_id, thread_id)
+
+    if session.user_id != user_id:
+        raise ApiError(404, "session_not_found", "Conversation not found.")
+
+    return session
 
 
 def start_turn(session: Session, coro) -> None:
@@ -78,6 +92,15 @@ def start_turn(session: Session, coro) -> None:
     task.add_done_callback(_background_tasks.discard)
 
 
+def is_past(timestamp: str | None) -> bool:
+    if not timestamp:
+        return False
+    moment = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    return moment <= datetime.now(timezone.utc)
+
+
 def lock_or_409(session: Session) -> None:
     if not turn_manager.acquire(session.thread_id):
         raise ApiError(409, "turn_in_progress", "ATLAS is still working on your last request.", retryable=True)
@@ -87,12 +110,20 @@ def lock_or_409(session: Session) -> None:
 
 @router.get("/health")
 async def health():
-    return {"status": "ok", "contract_version": CONTRACT_VERSION}
+    """Liveness + the one dependency we can't work without. 503 makes the platform restart us."""
+    try:
+        async with SessionLocal() as db:
+            await asyncio.wait_for(db.execute(text("SELECT 1")), timeout=2)
+    except Exception:
+        logger.exception("health check: database unreachable")
+        return JSONResponse({"status": "degraded", "database": "down"}, status_code=503)
+
+    return {"status": "ok", "database": "ok", "contract_version": CONTRACT_VERSION}
 
 
 @router.post("/sessions", status_code=201)
-async def create_session():
-    session = session_store.create(DEMO_USER_ID)
+async def create_session(user_id: str = Depends(current_user_id)):
+    session = await session_store.create(user_id)
     return {"thread_id": session.thread_id, "contract_version": CONTRACT_VERSION}
 
 
@@ -103,14 +134,14 @@ async def stream_session(
     thread_id: str,
     request: Request,
     last_event_id: str | None = Header(default=None),
-    access_token: str | None = None,          # contract §2 (not verified until auth is wired)
+    user_id: str = Depends(current_user_id),     # token arrives as ?access_token= (contract §2)
 ):
     """
     1. subscribe first (so nothing published from now on is missed)
     2. send session.snapshot with id = last event id -> the browser redraws from it
     3. stream live events, skipping any the snapshot already contains
     """
-    session = get_session(thread_id)
+    session = await get_session(thread_id, user_id)
 
     queue, _ = await event_bus.subscribe(thread_id)
 
@@ -158,8 +189,8 @@ async def stream_session(
 # ---- chat --------------------------------------------------------------------------------
 
 @router.post("/sessions/{thread_id}/messages", status_code=202)
-async def send_message(thread_id: str, body: MessageIn):
-    session = get_session(thread_id)
+async def send_message(thread_id: str, body: MessageIn, user_id: str = Depends(current_user_id)):
+    session = await get_session(thread_id, user_id)
 
     # retry-safe: the same client_id is the same request
     if body.client_id in session.seen_client_ids:
@@ -181,8 +212,8 @@ async def send_message(thread_id: str, body: MessageIn):
 # ---- the user's answers --------------------------------------------------------------------
 
 @router.post("/sessions/{thread_id}/approvals/{approval_id}", status_code=202)
-async def decide(thread_id: str, approval_id: str, body: ApprovalIn):
-    session = get_session(thread_id)
+async def decide(thread_id: str, approval_id: str, body: ApprovalIn, user_id: str = Depends(current_user_id)):
+    session = await get_session(thread_id, user_id)
     pending = session.state["approval"]
 
     if pending is None or pending["approval_id"] != approval_id:
@@ -197,16 +228,22 @@ async def decide(thread_id: str, approval_id: str, body: ApprovalIn):
         raise ApiError(409, "approval_not_pending", "There is no such approval waiting.")
 
     lock_or_409(session)
-    session.resolved[approval_id] = body.decision
 
-    start_turn(session, runner.resume_approval(session, approval_id, body.decision))
+    # an approval is only good while the airline's offer is: late "yes" books nothing
+    decision = body.decision
+    if decision == "approved" and is_past(pending.get("expires_at")):
+        decision = "expired"
+
+    session.resolved[approval_id] = decision
+
+    start_turn(session, runner.resume_approval(session, approval_id, decision))
 
     return accepted()
 
 
 @router.post("/sessions/{thread_id}/passenger-requests/{request_id}", status_code=202)
-async def add_passengers(thread_id: str, request_id: str, body: PassengersIn):
-    session = get_session(thread_id)
+async def add_passengers(thread_id: str, request_id: str, body: PassengersIn, user_id: str = Depends(current_user_id)):
+    session = await get_session(thread_id, user_id)
     pending = session.state["passenger_request"]
 
     if pending is None or pending["request_id"] != request_id:
@@ -227,8 +264,8 @@ async def add_passengers(thread_id: str, request_id: str, body: PassengersIn):
 
 
 @router.post("/sessions/{thread_id}/flight-selection", status_code=202)
-async def select_flight(thread_id: str, body: FlightSelectionIn):
-    session = get_session(thread_id)
+async def select_flight(thread_id: str, body: FlightSelectionIn, user_id: str = Depends(current_user_id)):
+    session = await get_session(thread_id, user_id)
 
     flight = next((f for f in session.state["flights"] if f["flight_id"] == body.flight_id), None)
     if flight is None:
@@ -259,8 +296,8 @@ async def select_flight(thread_id: str, body: FlightSelectionIn):
 # ---- payments + cancellation (buttons) -----------------------------------------------------------
 
 @router.post("/sessions/{thread_id}/payments", status_code=202)
-async def start_payment(thread_id: str):
-    session = get_session(thread_id)
+async def start_payment(thread_id: str, user_id: str = Depends(current_user_id)):
+    session = await get_session(thread_id, user_id)
     booking = session.state["booking"]
 
     if not booking or booking.get("lifecycle") in ("cancelled", "expired"):
@@ -276,8 +313,8 @@ async def start_payment(thread_id: str):
 
 
 @router.post("/sessions/{thread_id}/payments/{payment_id}/sync", status_code=202)
-async def sync_payment(thread_id: str, payment_id: str):
-    session = get_session(thread_id)
+async def sync_payment(thread_id: str, payment_id: str, user_id: str = Depends(current_user_id)):
+    session = await get_session(thread_id, user_id)
 
     if (session.state["payment"] or {}).get("payment_id") != payment_id:
         raise ApiError(404, "payment_not_found", "Unknown payment.")
@@ -291,8 +328,8 @@ async def sync_payment(thread_id: str, payment_id: str):
 
 
 @router.post("/sessions/{thread_id}/booking/cancel", status_code=202)
-async def cancel_booking(thread_id: str):
-    session = get_session(thread_id)
+async def cancel_booking(thread_id: str, user_id: str = Depends(current_user_id)):
+    session = await get_session(thread_id, user_id)
 
     if (session.state["booking"] or {}).get("lifecycle") not in ("held", "awaiting_payment"):
         raise ApiError(409, "no_active_booking", "There is no held booking to cancel.")

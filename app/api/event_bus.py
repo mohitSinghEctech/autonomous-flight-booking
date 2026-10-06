@@ -93,6 +93,12 @@ class SessionEventBus:
 
         return list(self._history.get(thread_id, []))
 
+    def restore_counter(self, thread_id: str, last_event_id: int) -> None:
+        """After a restart: continue numbering where the saved session stopped,
+        so browsers (which skip ids they've seen) never miss a new event."""
+        if last_event_id > self._next_event_id.get(thread_id, 0):
+            self._next_event_id[thread_id] = last_event_id
+
     def get_last_event_id(
         self,
         thread_id: str,

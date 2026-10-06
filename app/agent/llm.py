@@ -1,5 +1,7 @@
 import asyncio
+import logging
 import os
+import time
 
 from dotenv import load_dotenv
 from openai import APIConnectionError, APITimeoutError, AsyncOpenAI, RateLimitError
@@ -12,11 +14,14 @@ from app.core.errors import (
     UpstreamTimeout,
     UpstreamUnavailable,
 )
+from app.core.logging import log_fields
 from app.core.rate_limiter import llm_rate_limiter
 from app.models import BookFlight, SearchFlights
 
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 llm_semaphore = asyncio.Semaphore(3)
 
@@ -154,6 +159,7 @@ def build_messages(state: AgentState) -> list[dict]:
 
 
 async def call_llm(state: AgentState):
+    started = time.monotonic()
     try:
         await llm_rate_limiter.acquire()
 
@@ -177,8 +183,27 @@ async def call_llm(state: AgentState):
     except APIConnectionError as exc:
         raise UpstreamUnavailable("LLM provider currently unavailable.") from exc
 
+    usage = getattr(response, "usage", None)
+    input_tokens = getattr(usage, "prompt_tokens", 0) or 0
+    output_tokens = getattr(usage, "completion_tokens", 0) or 0
+
+    turn = progress.current_turn()
+    if turn:
+        turn.input_tokens += input_tokens
+        turn.output_tokens += output_tokens
+
+    message = response.choices[0].message.model_dump()
+    log_fields(
+        logger, "llm call",
+        model=os.getenv("LLM_MODEL"),
+        duration_ms=round((time.monotonic() - started) * 1000),
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        tool_calls=[c["function"]["name"] for c in (message.get("tool_calls") or [])],
+    )
+
     return {
-        "messages": [response.choices[0].message.model_dump()]
+        "messages": [message]
     }
 
 

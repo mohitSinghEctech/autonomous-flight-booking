@@ -8,6 +8,7 @@ the tasks LangGraph creates, so nodes see the turn without passing it around.
 
 All payloads go through the contract models in events.py first.
 """
+import time
 import uuid
 from contextvars import ContextVar
 from dataclasses import dataclass, field
@@ -26,6 +27,9 @@ class TurnContext:
     origin: str = "user"                 # user | selection | approval | payment | cancel
     llm_calls: int = 0
     open_steps: set[str] = field(default_factory=set)
+    started: float = field(default_factory=time.monotonic)
+    input_tokens: int = 0
+    output_tokens: int = 0
 
 
 _turn: ContextVar[TurnContext | None] = ContextVar("turn", default=None)

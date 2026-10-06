@@ -1,4 +1,9 @@
+from contextlib import asynccontextmanager
+
 from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+from psycopg.rows import dict_row
+from psycopg_pool import AsyncConnectionPool
 from langgraph.graph import END, START, StateGraph
 
 from app.agent.approval import approval_node
@@ -51,7 +56,7 @@ def route_after_passengers(state: AgentState):
     return END if state["messages"][-1]["role"] == "assistant" else "llm"
 
 
-def build_graph():
+def build_graph(checkpointer=None):
 
     builder = StateGraph(AgentState)
 
@@ -116,8 +121,40 @@ def build_graph():
     )
 
     return builder.compile(
-        checkpointer=InMemorySaver()
+        checkpointer=checkpointer or InMemorySaver()
     )
 
 
+# In memory until the API starts: tests and `python -m app.graph` use this one.
 graph = build_graph()
+
+
+@asynccontextmanager
+async def postgres_checkpointer(database_url: str):
+    """
+    The agent's memory (messages, booking state, a paused interrupt) in Postgres,
+    so an approval waiting when the API restarts can still be answered.
+
+    Used by the app's lifespan (main.py). Callers reach the graph as
+    `agent_graph.graph`, so swapping it here is enough.
+    """
+    global graph
+
+    # LangGraph's saver speaks psycopg, not asyncpg: same database, plain URL
+    conninfo = database_url.replace("postgresql+asyncpg://", "postgresql://")
+
+    async with AsyncConnectionPool(
+        conninfo,
+        min_size=1,
+        max_size=5,
+        open=False,
+        kwargs={"autocommit": True, "prepare_threshold": 0, "row_factory": dict_row},
+    ) as pool:
+        saver = AsyncPostgresSaver(pool)
+        await saver.setup()            # creates / migrates LangGraph's own tables
+
+        previous, graph = graph, build_graph(saver)
+        try:
+            yield
+        finally:
+            graph = previous

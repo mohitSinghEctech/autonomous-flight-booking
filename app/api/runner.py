@@ -8,12 +8,13 @@ Nothing here raises to the caller: failures become an `error` event, failed
 steps and turn.completed{outcome: failed}.
 """
 import logging
+import time
 import uuid
 from contextlib import asynccontextmanager
 
 from langgraph.types import Command
 
-from app.agent.graph import graph
+from app.agent import graph as agent_graph
 from app.agent.handlers import to_booking_state, to_payment_state
 from app.api import events as contract
 from app.api import progress
@@ -21,6 +22,7 @@ from app.api.errors import to_error_code
 from app.api.sessions import Session, session_store
 from app.api.views import booking_view, flight_from_booking, payment_view
 from app.core.errors import NoActiveBooking
+from app.core.logging import log_fields
 from app.db.models import BookingStatus, PaymentStatus
 from app.db.repositories.bookings import BookingRepository
 from app.db.session import SessionLocal
@@ -72,6 +74,18 @@ async def turn(session: Session, title: str, origin: str):
         else:
             await progress.set_status(False, "idle", "Standing by")
 
+        session_store.save_soon(session)
+
+        log_fields(
+            logger, "turn finished",
+            origin=context.origin,
+            outcome=outcome,
+            duration_ms=round((time.monotonic() - context.started) * 1000),
+            llm_calls=context.llm_calls,
+            input_tokens=context.input_tokens,
+            output_tokens=context.output_tokens,
+        )
+
         progress.leave_turn(token)
 
 
@@ -82,7 +96,7 @@ def is_waiting(session: Session) -> bool:
 # ---- graph helpers ------------------------------------------------------------------
 
 async def agent_values(thread_id: str) -> dict:
-    snapshot = await graph.aget_state(build_config(thread_id))
+    snapshot = await agent_graph.graph.aget_state(build_config(thread_id))
     return snapshot.values or {}
 
 
@@ -95,9 +109,9 @@ async def sync_agent_state(thread_id: str, values: dict, note: str | None = None
     if note:
         values = {**values, "messages": [{"role": "assistant", "content": note}]}
     try:
-        snapshot = await graph.aget_state(build_config(thread_id))
+        snapshot = await agent_graph.graph.aget_state(build_config(thread_id))
         if snapshot.values and not snapshot.next:
-            await graph.aupdate_state(build_config(thread_id), values)
+            await agent_graph.graph.aupdate_state(build_config(thread_id), values)
     except Exception:
         logger.exception("could not sync agent state (thread %s)", thread_id)
 
@@ -151,13 +165,13 @@ async def supersede_pending(session: Session) -> None:
 
     if approval:
         if session.pending_kind == "graph":
-            await graph.ainvoke(Command(resume="superseded"), config=build_config(session.thread_id))
+            await agent_graph.graph.ainvoke(Command(resume="superseded"), config=build_config(session.thread_id))
         session.resolved[approval["approval_id"]] = "superseded"
         await progress.publish_model("approval.resolved", contract.ApprovalResolvedEvent,
                                      {"approval_id": approval["approval_id"], "decision": "superseded"})
 
     if request:
-        await graph.ainvoke(Command(resume={"decision": "superseded"}), config=build_config(session.thread_id))
+        await agent_graph.graph.ainvoke(Command(resume={"decision": "superseded"}), config=build_config(session.thread_id))
         session.resolved[request["request_id"]] = "superseded"
         await progress.publish_model("passenger.resolved", contract.PassengerResolvedEvent,
                                      {"request_id": request["request_id"], "decision": "superseded"})
@@ -175,7 +189,7 @@ async def run_message(session: Session, text: str, *, title: str, origin: str = 
     async with turn(session, title, origin):
         await supersede_pending(session)
 
-        result = await graph.ainvoke(
+        result = await agent_graph.graph.ainvoke(
             {
                 # Only what is NEW this turn; the checkpoint keeps the rest.
                 "messages": [{"role": "user", "content": text}],
@@ -195,7 +209,10 @@ async def resume_approval(session: Session, approval_id: str, decision: str) -> 
         await close_waiting_step(
             session,
             "done" if decision == "approved" else "skipped",
-            "You approved" if decision == "approved" else "You declined — nothing changed",
+            {
+                "approved": "You approved",
+                "expired": "The fare expired before you approved — nothing booked",
+            }.get(decision, "You declined — nothing changed"),
         )
 
         kind, session.pending_kind = session.pending_kind, None
@@ -204,7 +221,7 @@ async def resume_approval(session: Session, approval_id: str, decision: str) -> 
             await finish_cancellation(session, decision)
             return
 
-        result = await graph.ainvoke(Command(resume=decision), config=build_config(session.thread_id))
+        result = await agent_graph.graph.ainvoke(Command(resume=decision), config=build_config(session.thread_id))
         await handle_graph_result(session, result, "approval")
 
 
@@ -228,7 +245,7 @@ async def resume_passengers(session: Session, request_id: str, decision: str, pa
                                  "Details added" if saved else "No passengers added")
         session.pending_kind = None
 
-        result = await graph.ainvoke(
+        result = await agent_graph.graph.ainvoke(
             Command(resume={"decision": decision, "passengers": saved}),
             config=build_config(session.thread_id),
         )
@@ -295,7 +312,8 @@ async def apply_webhook(order_id: str, status: ProviderPaymentStatus, event_id: 
         )
         passengers = await BookingService(db_session).booking_passengers(booking)
 
-    thread_id = session_store.order_threads.get(order_id)
+    # after a restart the in-memory map is empty: find the conversation showing this payment
+    thread_id = session_store.order_threads.get(order_id) or await session_store.thread_for_payment(order_id)
 
     if thread_id and not duplicate:
         await publish_payment_change(thread_id, payment, booking, passengers, changed)
@@ -325,6 +343,10 @@ async def publish_payment_change(thread_id, payment, booking, passengers, change
             PaymentStatus.FAILED: "[app] The payment failed. The booking is still held and can be paid again.",
         }.get(payment.status)
         await sync_agent_state(thread_id, {"payment": to_payment_state(payment), "booking": to_booking_state(booking)}, note)
+
+    session = await session_store.load(thread_id)
+    if session is not None:
+        session_store.save_soon(session)
 
 
 # ---- cancellation (app-level approval, no LLM) -----------------------------------------------------
