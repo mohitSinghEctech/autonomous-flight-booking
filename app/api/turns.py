@@ -1,22 +1,20 @@
-import asyncio
-
-
 class TurnManager:
 
     def __init__(self):
-        self._locks: dict[str, asyncio.Lock] = {}
         self._busy: set[str] = set()
+        self._waiting_for_approval: set[str] = set()
 
-    def is_busy(self, thread_id: str) -> bool:
+    def is_busy(
+        self,
+        thread_id: str,
+    ) -> bool:
+
         return thread_id in self._busy
 
-    def acquire(self, thread_id: str) -> bool:
-        """
-        Reserve the conversation for a new turn.
-
-        This happens synchronously inside the request handler,
-        before create_task(), so a second request cannot sneak in.
-        """
+    def acquire(
+        self,
+        thread_id: str,
+    ) -> bool:
 
         if thread_id in self._busy:
             return False
@@ -25,22 +23,27 @@ class TurnManager:
 
         return True
 
-    async def run(
+    def release(
         self,
         thread_id: str,
-        operation,
-    ):
-        lock = self._locks.setdefault(
-            thread_id,
-            asyncio.Lock(),
-        )
+    ) -> None:
 
-        try:
-            async with lock:
-                return await operation()
+        self._busy.discard(thread_id)
+        self._waiting_for_approval.discard(thread_id)
 
-        finally:
-            self._busy.discard(thread_id)
+    def set_waiting_for_approval(
+        self,
+        thread_id: str,
+    ) -> None:
+
+        self._waiting_for_approval.add(thread_id)
+
+    def is_waiting_for_approval(
+        self,
+        thread_id: str,
+    ) -> bool:
+
+        return thread_id in self._waiting_for_approval
 
 
 turn_manager = TurnManager()
