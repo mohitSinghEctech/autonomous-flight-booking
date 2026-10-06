@@ -1,4 +1,5 @@
 """Passenger-required workflow: interrupt -> form -> Postgres -> resume -> approval."""
+import pytest
 from sqlalchemy import select
 
 from app.db.models import Passenger
@@ -52,10 +53,14 @@ async def test_providing_details_saves_them_and_continues_to_approval(session, f
     assert {p.given_name for p in saved} == {"Asha", "Ravi"}
 
 
-async def test_invalid_passenger_details_are_422(session, fakes):
+@pytest.mark.parametrize("phone", [
+    "12345",              # wrong shape
+    "+447700900123",      # right shape, but a reserved range: no such number (Duffel rejects it)
+])
+async def test_invalid_passenger_details_are_422(session, fakes, phone):
     request = await ask_for_two(session)
 
-    bad = {**NEW_PASSENGER, "phone_number": "12345"}
+    bad = {**NEW_PASSENGER, "phone_number": phone}
     response = await session.api.post(
         session.url(f"/passenger-requests/{request['request_id']}"),
         json={"decision": "provided", "passengers": [bad]},

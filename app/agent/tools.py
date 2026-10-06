@@ -1,4 +1,6 @@
 import json
+import logging
+import time
 
 import httpx
 
@@ -13,6 +15,9 @@ from app.agent.handlers import (
 from app.agent.state import AgentState
 from app.api import progress
 from app.core.errors import AppError, OfferUnavailable
+from app.core.logging import log_fields
+
+logger = logging.getLogger(__name__)
 
 
 HANDLERS = {
@@ -82,10 +87,20 @@ async def execute_tools(state: AgentState):
         )
 
         # Later calls in the same turn see earlier calls' state changes
+        started = time.monotonic()
         result = await execute_tool(tool_call, {**state, **updates})
         updates.update(result.update)
 
         failed = isinstance(result.content, dict) and "error" in result.content
+
+        log_fields(
+            logger, "tool call",
+            level=logging.WARNING if failed else logging.INFO,
+            tool=tool_name,
+            duration_ms=round((time.monotonic() - started) * 1000),
+            ok=not failed,
+            error=result.content.get("error") if failed else None,
+        )
 
         for event, data in result.events:
             await progress.publish(event, data)

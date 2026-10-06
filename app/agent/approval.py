@@ -40,11 +40,15 @@ async def build_booking_approval(tool_call: dict, state: AgentState) -> dict:
     held = (state.get("booking") or {}).get("lifecycle") in ("held", "awaiting_payment")
     kind = "change" if held else "book"
 
+    view = flight_view(flight)
+
     return {
         "approval_id": f"ap_{tool_call['id']}",
         "kind": kind,
         "flight_id": flight.flight_id,
-        "flight": flight_view(flight),
+        "flight": view,
+        # the airline's offer deadline: approving after it books nothing (routes.decide)
+        "expires_at": view.get("expires_at"),
         "passengers": [passenger_view(p) for p in passengers],
         "total_amount": flight.price,
         "currency": flight.currency,
@@ -89,6 +93,12 @@ async def approval_node(state: AgentState):
 
         if decision == "superseded":
             return supersede(tool_calls, "The user moved on to a different request.")
+
+        if decision == "expired":
+            return skip_tool_calls(
+                tool_calls,
+                "The fare offer expired before the user approved it. Nothing was booked; search again for current fares.",
+            )
 
         return skip_tool_calls(tool_calls, "The user declined the booking.")
 

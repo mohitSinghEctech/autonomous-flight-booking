@@ -33,6 +33,10 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgresql+asyncpg://flight_user:flight_password@postgres:5432/flight_booking
+      # local: real token checks, but against the Firebase Auth EMULATOR (unsigned tokens)
+      AUTH_MODE: firebase
+      FIREBASE_PROJECT_ID: mks-agent-console
+      FIREBASE_AUTH_EMULATOR_HOST: host.docker.internal:9099
     ports:
       - "8000:8000"
     depends_on:

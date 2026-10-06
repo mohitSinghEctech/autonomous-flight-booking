@@ -116,7 +116,7 @@ Without (2), the real model trusted its own earlier "your seat is on hold" over 
 
 ```bash
 docker start flight_booking_postgres
-uv run pytest -q          # 45 tests, ~30 s
+uv run pytest -q          # 62 tests, ~36 s
 ```
 
 | File | Covers |
@@ -127,6 +127,8 @@ uv run pytest -q          # 45 tests, ~30 s
 | `test_passengers.py` | interrupt, save + continue to approval, 422 bad phone / wrong count, cancel the form |
 | `test_stream.py` | increasing ids, reconnect snapshot, heartbeat, error shapes, CORS |
 | `test_units.py` | SSE framing, Duffel durations, Cashfree status + signature + webhook parsing, projection |
+| `test_auth.py` | real RS256 tokens (own test key), bad signature / audience / expiry / kid, user created once, 404 on someone else's thread, emulator tokens, redaction, request id |
+| `test_persistence.py` | restart with a pending approval → approve → booked (real Postgres checkpointer), dedupe after restart, expired approval books nothing |
 
 How they work: `conftest.py` creates and migrates `flight_booking_test`, starts the real app on a free port, and swaps `all_providers.flight_provider` / `payment_provider`, the MCP client and the OpenAI client for fakes (`tests/fakes.py`). `FakeLLM` is rule-based, so flows are deterministic. Services look providers up **at call time** (`all_providers.x`), which is what makes this swap possible without a DI framework.
 
@@ -134,15 +136,42 @@ The suite ran green 3 times in a row. It was also checked live (`?live=1`) with 
 
 ---
 
-## 8. Known limits (honest list)
+## 8. Production readiness (added 2026-10-06)
 
-| Limit | Why it's fine now | Production fix |
-|---|---|---|
-| sessions, event history, turn lock, checkpointer in memory | single process, learning | Postgres checkpointer, Redis / Postgres for bus + locks |
-| no auth: every session is `DEMO_USER_ID` | the UI sits behind Firebase login already | verify the Firebase ID token (`Authorization` / `access_token`), map uid → user |
-| webhook can't reach localhost | `/sync` covers it | public URL / tunnel in `CASHFREE_WEBHOOK_URL` |
-| Duffel hold succeeds but the DB write fails → orphan hold | rare, test mode | outbox / compensating cancel |
-| `approval.expires_at` not enforced | offers live ~30 min | expire the pending approval when the offer expires |
+### Auth — `app/api/auth.py`
+- The browser sends its Firebase ID token (`Authorization: Bearer`, or `?access_token=` on the stream).
+- We verify it **without firebase-admin**: RS256 signature against Google's published certs (cached for their `max-age`), `aud` = project id, `iss` = `securetoken.google.com/<project>`, `exp`, `sub`.
+- The uid maps to `users.firebase_uid`. A user is created on first sign-in, and the unique constraint settles the race between two first requests.
+- **Every session has an owner.** Someone else's `thread_id` returns **404, not 403**, so ids can't be probed.
+- `AUTH_MODE=demo` turns auth off (tests, curl). `FIREBASE_AUTH_EMULATOR_HOST` accepts the emulator's unsigned tokens. Both print a startup warning.
+
+### Restarts — conversations and the agent survive
+| What | Where |
+|---|---|
+| Agent memory (messages, state, **a paused interrupt**) | LangGraph `AsyncPostgresSaver`, opened in the app lifespan |
+| UI projection + bookkeeping (client_ids, resolved approvals, turn counter, **last event id**) | `chat_sessions` (JSONB), saved after every turn and payment update (`save_soon`: never delays the lock) |
+| Order → conversation for webhooks | memory, falling back to a JSONB query on `chat_sessions.state.payment.payment_id` |
+
+Event ids continue from the saved `last_event_id`. If they restarted at 1, the browser (which skips ids it has seen) would silently drop new events.
+
+### Approval expiry
+The approval carries the offer's `expires_at`. Approving after it → decision `expired` → nothing is booked, and the agent is told to search again.
+
+### Observability — `app/core/logging.py`
+- One JSON object per line. `request_id` (middleware, echoed as `X-Request-ID`), `thread_id` and `turn_id` (ContextVars) are attached automatically.
+- `llm call`: model, duration, input/output tokens, tool calls.
+- `tool call`: tool, duration, ok, error.
+- `turn finished`: origin, outcome, duration, LLM calls, tokens.
+- The access log is ours: path without the query string. `redact()` masks `access_token=`, `Bearer …` and any JWT anywhere.
+
+### Still single-process (by design for now)
+The turn lock and the live SSE fan-out are in memory, so run **one** API instance (one uvicorn worker). Scaling out needs Redis / Postgres `LISTEN/NOTIFY` for the fan-out and a shared lock.
+
+| Remaining limit | Fix when needed |
+|---|---|
+| one instance only | shared fan-out + lock |
+| Duffel hold succeeds but the DB write fails → orphan hold | outbox / compensating cancel |
+| ~15k input tokens per LLM call (50 flights in history) | trim tool results in history; send the model a summary, not every offer |
 
 ---
 

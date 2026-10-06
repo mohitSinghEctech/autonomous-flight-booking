@@ -44,12 +44,13 @@ Payment SSE events                  ✅
 Web contract completion             ✅  contract v1.1, UI works live (?live=1)
 Payment webhook idempotency         ✅  signed + (provider, event_id) unique + state machine
 Passenger-required workflow         ✅  interrupt → form → Postgres → resume
-Full integration tests              ✅  46 tests, real uvicorn + Postgres + SSE
+Full integration tests              ✅  62 tests, real uvicorn + Postgres + SSE
 
 Docker                              ✅  alpine multi-stage 246 MB, non-root, healthcheck, compose: postgres → migrate → api
-Observability                       ⏳
-Production hardening                ⏳  (see api-layer.md §8)
-Deployment                          ⏳  together
+Observability                       ✅  JSON logs, request/thread/turn ids, LLM tokens + timings, token redaction
+Production hardening                ✅  Firebase token verification, per-user sessions, restart-safe (Postgres
+                                        checkpointer + chat_sessions), approval expiry, config fail-fast, DB health
+Deployment                          ⏳  next — together
 
 Project 2 RAG                       ⏸ DEFERRED
 ```
@@ -75,10 +76,15 @@ Docker lessons: MCP stdio passes only HOME/PATH to the server subprocess (pass s
 
 UI: `https://provenance.web.app/flight/?live=1` (or the agent-console emulator at `http://localhost:5055/flight/?emulate=1&live=1`).
 
-## Next session
+## Next session: deployment
 
-1. **Observability**: request / thread / turn ids in structured logs, LLM / tool / DB latency.
-2. **Hardening**: Postgres checkpointer, Firebase token verification, approval expiry.
+1. Pick the host (one container + managed Postgres): Cloud Run + Cloud SQL / Neon, or Render / Fly.
+2. Secrets in the platform's secret store; `AUTH_MODE=firebase`, **no** `FIREBASE_AUTH_EMULATOR_HOST`.
+3. Run `alembic upgrade head` as a release step, then start ONE instance (`PORT` is honoured).
+4. `CASHFREE_WEBHOOK_URL` = the public URL; test the webhook end to end.
+5. Point the UI at the API URL and redeploy agent-console.
+
+Later: trim LLM context (~15k tokens per call), Langfuse tracing, CI.
 
 ## Docs
 

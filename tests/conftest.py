@@ -24,6 +24,9 @@ os.environ.setdefault("FLIGHT_VENDOR_TOKEN", "test-token")
 os.environ.setdefault("LLM_API_KEY", "test-key")
 os.environ.setdefault("LLM_MODEL", "fake-model")
 os.environ["LOG_LEVEL"] = "WARNING"
+os.environ["AUTH_MODE"] = "demo"
+os.environ.setdefault("CASHFREE_APP_ID", "test-app")
+os.environ.setdefault("CASHFREE_API_KEY", "test-key")
 
 import asyncpg  # noqa: E402
 import httpx  # noqa: E402
@@ -31,7 +34,7 @@ import pytest  # noqa: E402
 import uvicorn  # noqa: E402
 
 from app.agent import handlers, llm  # noqa: E402
-from app.api import routes  # noqa: E402
+from app.api import auth  # noqa: E402
 from app.db.models import Passenger, User  # noqa: E402
 from app.db.session import SessionLocal  # noqa: E402
 from app.main import app  # noqa: E402
@@ -94,7 +97,7 @@ async def user(monkeypatch):
         ))
         await session.commit()
 
-    monkeypatch.setattr(routes, "DEMO_USER_ID", str(account.id))
+    monkeypatch.setattr(auth, "DEMO_USER_ID", str(account.id))
     return account
 
 

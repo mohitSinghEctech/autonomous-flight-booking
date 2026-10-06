@@ -16,7 +16,8 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+import phonenumbers
+from pydantic import BaseModel, Field, field_validator
 
 
 CONTRACT_VERSION = "1.1"
@@ -244,6 +245,19 @@ class NewPassenger(BaseModel):
     born_on: date
     email: str = Field(pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$", max_length=255)
     phone_number: str = Field(pattern=r"^\+[1-9]\d{7,14}$")      # E.164, what Duffel accepts
+
+    @field_validator("phone_number")
+    @classmethod
+    def real_phone_number(cls, value: str) -> str:
+        """The pattern only checks the shape. Airlines (via Duffel) reject numbers that can't
+        exist, e.g. reserved ranges — catch that here, before the user approves anything."""
+        try:
+            number = phonenumbers.parse(value, None)
+        except phonenumbers.NumberParseException as exc:
+            raise ValueError("Enter a valid phone number with country code.") from exc
+        if not phonenumbers.is_valid_number(number):
+            raise ValueError("This phone number doesn't exist. Check it, including the country code.")
+        return value
 
 
 class PassengersIn(BaseModel):

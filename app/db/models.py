@@ -54,6 +54,13 @@ class User(Base):
         nullable=False,
     )
 
+    # Firebase Auth uid; NULL for users created before sign-in existed (the demo user)
+    firebase_uid: Mapped[str | None] = mapped_column(
+        String(128),
+        unique=True,
+        nullable=True,
+    )
+
     passengers: Mapped[list["Passenger"]] = relationship(
         back_populates="user"
     )
@@ -577,4 +584,41 @@ class PaymentEvent(Base):
 
     payment: Mapped["Payment"] = relationship(
         back_populates="events"
+    )
+
+class ChatSession(Base):
+    """
+    One conversation of the web UI, so it survives an API restart.
+
+    state = the projection the browser redraws from (session.snapshot).
+    meta  = the API's bookkeeping: client_ids seen, resolved approvals,
+            turn counter, last event id (ids must keep increasing after a restart).
+    The agent's own memory lives in LangGraph's checkpoint tables, same thread_id.
+    """
+
+    __tablename__ = "chat_sessions"
+
+    thread_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id"),
+        nullable=False,
+        index=True,
+    )
+
+    state: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    meta: Mapped[dict] = mapped_column(JSONB, nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
     )
