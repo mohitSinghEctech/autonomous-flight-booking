@@ -14,3 +14,6 @@ class AgentState(TypedDict):
 
     # Our own Postgres bookings.id. Used by services, never shown to the LLM.
     db_booking_id: str | None
+
+    # Offers the airline refused. The app never asks approval to book these again.
+    unavailable_offers: list[str]

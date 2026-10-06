@@ -44,9 +44,9 @@ Payment SSE events                  ✅
 Web contract completion             ✅  contract v1.1, UI works live (?live=1)
 Payment webhook idempotency         ✅  signed + (provider, event_id) unique + state machine
 Passenger-required workflow         ✅  interrupt → form → Postgres → resume
-Full integration tests              ✅  45 tests, real uvicorn + Postgres + SSE
+Full integration tests              ✅  46 tests, real uvicorn + Postgres + SSE
 
-Docker                              ⏳  next — together
+Docker                              ✅  alpine multi-stage 246 MB, non-root, healthcheck, compose: postgres → migrate → api
 Observability                       ⏳
 Production hardening                ⏳  (see api-layer.md §8)
 Deployment                          ⏳  together
@@ -67,19 +67,18 @@ Project 2 RAG                       ⏸ DEFERRED
 ## Run
 
 ```bash
-docker start flight_booking_postgres
-uv run alembic upgrade head
-uv run uvicorn app.main:app --reload --port 8000
-uv run pytest -q
+docker compose up --build -d     # postgres → migrate → api on :8000
+uv run pytest -q                  # tests (need postgres up)
 ```
+
+Docker lessons: MCP stdio passes only HOME/PATH to the server subprocess (pass secrets explicitly); Duffel test mode only holds reliably on Duffel Airways.
 
 UI: `https://provenance.web.app/flight/?live=1` (or the agent-console emulator at `http://localhost:5055/flight/?emulate=1&live=1`).
 
 ## Next session
 
-1. **Docker**: multi-stage image, non-root, health check, env vars (together).
-2. **Observability**: request / thread / turn ids in structured logs, LLM / tool / DB latency.
-3. **Hardening**: Postgres checkpointer, Firebase token verification, approval expiry.
+1. **Observability**: request / thread / turn ids in structured logs, LLM / tool / DB latency.
+2. **Hardening**: Postgres checkpointer, Firebase token verification, approval expiry.
 
 ## Docs
 

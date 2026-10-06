@@ -12,7 +12,7 @@ from app.agent.handlers import (
 )
 from app.agent.state import AgentState
 from app.api import progress
-from app.core.errors import AppError
+from app.core.errors import AppError, OfferUnavailable
 
 
 HANDLERS = {
@@ -48,6 +48,14 @@ async def execute_tool(
     # Expected failures go back to the LLM as data so it can react.
     try:
         return await handler(tool_call, state)
+
+    except OfferUnavailable as exc:
+        dead = [*(state.get("unavailable_offers") or []), exc.flight_id]
+        return ToolResult(
+            {"error": str(exc), "retryable": False},
+            update={"unavailable_offers": dead},
+            summary="Fare no longer available",
+        )
 
     except AppError as exc:
         return ToolResult({"error": str(exc)}, summary=str(exc))

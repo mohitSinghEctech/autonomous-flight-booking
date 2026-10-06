@@ -108,6 +108,7 @@ GUIDE = (
     "Search with search_flights, check travellers with get_saved_passengers, then book with book_flight "
     "using passenger ids for exactly the number of passengers searched. "
     "The application asks the user to approve every booking; do not ask for confirmation yourself. "
+    "If a tool error says retryable is false, do not call that tool again with the same arguments; explain the reason and offer an alternative (for an unavailable fare: search again). "
     "If a flight_id is given by the user, use that exact flight. "
     "If passengers are missing or incomplete, call request_passenger_details. "
     "Payments happen with buttons in the app; you don't need to collect card details. "

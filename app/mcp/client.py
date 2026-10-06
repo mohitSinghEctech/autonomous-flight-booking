@@ -1,10 +1,17 @@
+import os
+import sys
+
 from mcp import Client, StdioServerParameters
 
 class FlightMCPClient:
     def __init__(self):
         self.server = StdioServerParameters(
-            command="uv",
-            args=["run", "mcp", "run", "app/mcp/server.py"],
+            command=sys.executable,
+            args=["app/mcp/server.py"],
+            env={
+                "PATH": os.environ.get("PATH", ""),
+                "FLIGHT_VENDOR_TOKEN": os.environ.get("FLIGHT_VENDOR_TOKEN", ""),
+            }
         )
         
     async def search_flights(
