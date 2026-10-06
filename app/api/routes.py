@@ -1,5 +1,7 @@
 import asyncio
+import logging
 import uuid
+from typing import Literal
 
 from fastapi import APIRouter, Header, HTTPException, Response
 from fastapi.responses import StreamingResponse
@@ -7,11 +9,24 @@ from pydantic import BaseModel
 
 from app.api.event_bus import event_bus
 from app.api.events import SSEEvent
-from app.api.runner import run_turn
+from app.api.progress import publish_error
+from app.api.runner import resume_turn, run_turn
 from app.api.turns import turn_manager
 
 
 TEST_USER_ID = "eeb6ff6a-c66f-4874-a5aa-7c773962e14e"
+
+logger = logging.getLogger(__name__)
+
+# asyncio keeps only a WEAK reference to tasks: without this set a running
+# turn can be garbage-collected halfway through.
+_background_tasks: set[asyncio.Task] = set()
+
+
+def start_background(coro) -> None:
+    task = asyncio.create_task(coro)
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
 
 
 router = APIRouter(prefix="/api")
@@ -20,6 +35,11 @@ router = APIRouter(prefix="/api")
 class MessageRequest(BaseModel):
     text: str
     client_id: str | None = None
+
+
+class ApprovalRequest(BaseModel):
+    # contract §3.4: the UI sends {"decision": "approved" | "rejected"}
+    decision: Literal["approved", "rejected"]
 
 
 @router.post("/sessions")
@@ -39,11 +59,7 @@ async def stream_session(
     last_event_id: str | None = Header(default=None),
 ):
 
-    # ---------------------------------------------------------
-    # Parse Last-Event-ID
-    # ---------------------------------------------------------
-
-    parsed_last_event_id: int | None = None
+    parsed_last_event_id = None
 
     if last_event_id is not None:
 
@@ -51,90 +67,49 @@ async def stream_session(
             parsed_last_event_id = int(last_event_id)
 
         except ValueError:
+
             raise HTTPException(
                 status_code=400,
                 detail="invalid_last_event_id",
             )
-
-    # ---------------------------------------------------------
-    # Subscribe before creating the snapshot.
-    #
-    # This is important:
-    #
-    #     subscribe
-    #         ↓
-    #     snapshot
-    #         ↓
-    #     live events
-    #
-    # Otherwise an event could arrive between snapshot creation
-    # and subscription.
-    # ---------------------------------------------------------
 
     queue, replay = await event_bus.subscribe(
         thread_id=thread_id,
         last_event_id=parsed_last_event_id,
     )
 
-    # ---------------------------------------------------------
-    # Snapshot
-    # ---------------------------------------------------------
-
     history = event_bus.get_history(thread_id)
 
-    snapshot_data = {
-        "thread_id": thread_id,
-        "last_event_id": event_bus.get_last_event_id(thread_id),
-        "events": [
-            {
-                "id": event.event_id,
-                "event": event.event,
-                "data": event.data,
-            }
-            for event in history
-        ],
-    }
-
-    snapshot_event = SSEEvent(
+    snapshot = SSEEvent(
         event="session.snapshot",
-        data=snapshot_data,
+        data={
+            "thread_id": thread_id,
+            "last_event_id": event_bus.get_last_event_id(
+                thread_id
+            ),
+            "events": [
+                {
+                    "id": event.event_id,
+                    "event": event.event,
+                    "data": event.data,
+                }
+                for event in history
+            ],
+        },
     )
 
     async def event_generator():
 
         try:
 
-            # -------------------------------------------------
-            # Fresh connection
-            # -------------------------------------------------
-            #
-            # Send the snapshot first.
-            #
-            # Replaying old events is unnecessary because the
-            # snapshot contains the current event history.
-            #
-            # -------------------------------------------------
-
             if parsed_last_event_id is None:
 
-                yield snapshot_event.to_sse()
-
-            # -------------------------------------------------
-            # Reconnecting client
-            # -------------------------------------------------
-            #
-            # Send events missed after Last-Event-ID.
-            #
-            # -------------------------------------------------
+                yield snapshot.to_sse()
 
             else:
 
                 for event in replay:
                     yield event.to_sse()
-
-            # -------------------------------------------------
-            # Live stream
-            # -------------------------------------------------
 
             while True:
 
@@ -149,10 +124,6 @@ async def stream_session(
 
                 except asyncio.TimeoutError:
 
-                    # SSE comment.
-                    #
-                    # Browser ignores this but keeps the
-                    # connection alive.
                     yield ": heartbeat\n\n"
 
         except asyncio.CancelledError:
@@ -183,10 +154,6 @@ async def send_message(
     request: MessageRequest,
 ):
 
-    # ---------------------------------------------------------
-    # Prevent concurrent turns.
-    # ---------------------------------------------------------
-
     if not turn_manager.acquire(thread_id):
 
         raise HTTPException(
@@ -198,28 +165,83 @@ async def send_message(
 
         try:
 
-            await run_turn(
+            result = await run_turn(
                 thread_id=thread_id,
                 user_id=TEST_USER_ID,
                 message=request.text,
             )
 
-        except Exception:
-            # run_turn already publishes the SSE error.
-            #
-            # The background task must not bring down FastAPI.
-            pass
+            if result.get("waiting_for_approval"):
+                turn_manager.set_waiting_for_approval(
+                    thread_id
+                )
 
-    asyncio.create_task(
-        turn_manager.run(
-            thread_id,
-            execute,
-        )
+        except Exception:
+
+            # run_turn already published an error event for the UI;
+            # this makes it visible in the server log as well.
+            logger.exception("turn failed (thread %s)", thread_id)
+
+        finally:
+
+            if not turn_manager.is_waiting_for_approval(
+                thread_id
+            ):
+                turn_manager.release(thread_id)
+
+    try:
+
+        # execute() -> a coroutine; create_task needs the coroutine,
+        # not the function.
+        start_background(execute())
+
+    except Exception:
+
+        # Nothing started, so nothing will ever release the lock: do it here.
+        turn_manager.release(thread_id)
+        raise
+
+    return Response(
+        content='{"accepted":true}',
+        media_type="application/json",
+        status_code=202,
     )
 
-    # ---------------------------------------------------------
-    # 202 = request accepted for asynchronous processing.
-    # ---------------------------------------------------------
+
+@router.post(
+    "/sessions/{thread_id}/approvals/{approval_id}"
+)
+async def resolve_approval(
+    thread_id: str,
+    approval_id: str,
+    request: ApprovalRequest,
+):
+
+    if not turn_manager.is_busy(thread_id):
+
+        raise HTTPException(
+            status_code=409,
+            detail="no_pending_approval",
+        )
+
+    async def execute():
+
+        try:
+
+            await resume_turn(
+                thread_id=thread_id,
+                approval=request.decision == "approved",
+            )
+
+        except Exception:
+
+            logger.exception("resume failed (thread %s)", thread_id)
+
+        finally:
+
+            turn_manager.release(thread_id)
+
+    start_background(execute())
 
     return Response(
         content='{"accepted":true}',

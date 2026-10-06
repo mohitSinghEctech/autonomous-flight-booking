@@ -8,11 +8,13 @@ from app.agent.tools import execute_tools
 
 
 def route_after_llm(state: AgentState):
+
     last_message = state["messages"][-1]
 
     tool_calls = last_message.get("tool_calls") or []
 
     for tool_call in tool_calls:
+
         if tool_call["function"]["name"] == "book_flight":
             return "approval"
 
@@ -23,7 +25,7 @@ def route_after_llm(state: AgentState):
 
 
 def route_after_approval(state: AgentState):
-    # A declined booking leaves tool replies behind; nothing should execute.
+
     if state["messages"][-1]["role"] == "tool":
         return "llm"
 
@@ -31,13 +33,28 @@ def route_after_approval(state: AgentState):
 
 
 def build_graph():
+
     builder = StateGraph(AgentState)
 
-    builder.add_node("llm", safe_call_llm)
-    builder.add_node("approval", approval_node)
-    builder.add_node("tools", execute_tools)
+    builder.add_node(
+        "llm",
+        safe_call_llm,
+    )
 
-    builder.add_edge(START, "llm")
+    builder.add_node(
+        "approval",
+        approval_node,
+    )
+
+    builder.add_node(
+        "tools",
+        execute_tools,
+    )
+
+    builder.add_edge(
+        START,
+        "llm",
+    )
 
     builder.add_conditional_edges(
         "llm",
@@ -58,7 +75,10 @@ def build_graph():
         },
     )
 
-    builder.add_edge("tools", "llm")
+    builder.add_edge(
+        "tools",
+        "llm",
+    )
 
     return builder.compile(
         checkpointer=InMemorySaver()
