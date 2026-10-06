@@ -472,6 +472,11 @@ class Payment(Base):
         String(100),
         nullable=False,
     )
+    
+    payment_session_id: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True
+    )
 
     amount: Mapped[Decimal] = mapped_column(
         Numeric(12, 2),

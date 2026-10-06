@@ -61,6 +61,7 @@ class PaymentService:
             booking_id=booking.id,
             provider=PAYMENT_PROVIDER_NAME,
             provider_payment_id=result.payment_id,
+            payment_session_id=result.payment_session_id,
             amount=Decimal(str(result.amount)),
             currency=result.currency,
             status=PaymentStatus(result.status.value),
