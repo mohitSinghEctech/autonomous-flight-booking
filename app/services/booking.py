@@ -9,7 +9,7 @@ from app.db.repositories.bookings import BookingRepository
 from app.db.repositories.flights import FlightRepository
 from app.db.repositories.passengers import PassengerRepository
 from app.models import BookFlight, Flight, Passenger
-from app.providers.all_providers import flight_provider as default_flight_provider
+from app.providers import all_providers
 from app.providers.flights.base import FlightProvider
 
 
@@ -25,10 +25,11 @@ class BookingService:
     def __init__(
         self,
         session: AsyncSession,
-        flight_provider: FlightProvider = default_flight_provider,
+        flight_provider: FlightProvider | None = None,
     ):
         self.session = session
-        self.flight_provider = flight_provider
+        # looked up at call time, so tests can swap all_providers.flight_provider
+        self.flight_provider = flight_provider or all_providers.flight_provider
 
         self.booking_repository = BookingRepository(session)
         self.flight_repository = FlightRepository(session)
@@ -88,6 +89,60 @@ class BookingService:
         await self.session.commit()
 
         return booking
+
+    async def cancel_booking(
+        self,
+        user_id: uuid.UUID,
+        booking_id: uuid.UUID,
+    ) -> db.Booking:
+        """Release the hold at the provider, then mark it cancelled. Idempotent."""
+
+        booking = await self.booking_repository.get_booking(booking_id)
+
+        if booking is None or booking.user_id != user_id:
+            raise AppError("Booking not found.")
+
+        if booking.status == db.BookingStatus.CANCELLED:
+            return booking
+
+        if booking.status not in (db.BookingStatus.HELD, db.BookingStatus.AWAITING_PAYMENT):
+            raise AppError("Only a held booking can be cancelled. Paid bookings need a refund.")
+
+        await self.flight_provider.cancel_order(booking.provider_booking_id)
+
+        await self.booking_repository.update_status(
+            booking.id,
+            db.BookingStatus.CANCELLED,
+        )
+
+        await self.session.commit()
+
+        return booking
+
+    async def add_passengers(
+        self,
+        user_id: uuid.UUID,
+        passengers: list[dict],
+    ) -> list[db.Passenger]:
+        """Save new passengers (title, given_name, family_name, gender, born_on, email, phone_number)."""
+
+        created = [
+            await self.passenger_repository.create_passenger(user_id=user_id, **passenger)
+            for passenger in passengers
+        ]
+
+        await self.session.commit()
+
+        return created
+
+    async def booking_passengers(
+        self,
+        booking: db.Booking,
+    ) -> list[db.Passenger]:
+
+        ids = [link.passenger_id for link in booking.booking_passengers]
+
+        return await self.passenger_repository.get_passengers_by_ids(ids) if ids else []
 
     async def get_booking(
         self,

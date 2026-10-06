@@ -122,22 +122,53 @@ class PaymentRepository:
 
         return event
     
-    async def get_active_payment_for_booking(
+    async def get_latest_for_booking(
         self,
-        booking_id: uuid.UUID
+        booking_id: uuid.UUID,
     ) -> Payment | None:
+
         result = await self.session.execute(
             select(Payment)
-            .where(
-                Payment.booking_id == booking_id,
-                Payment.status.in_([
-                    PaymentStatus.CREATED,
-                    PaymentStatus.PENDING,
-                    PaymentStatus.PAID,
-                    
-                ]),
-            )
+            .where(Payment.booking_id == booking_id)
             .order_by(Payment.created_at.desc())
+            .limit(1)
         )
-        
-        return result.scalar_one_or_none()
+
+        return result.scalars().first()
+
+    async def reset_for_retry(
+        self,
+        payment: Payment,
+        provider_payment_id: str,
+        payment_session_id: str | None,
+        amount: Decimal,
+        currency: str,
+    ) -> Payment:
+        """One payment row per booking (uq_payment_booking_id): a retry reuses it
+        with the NEW provider order id."""
+
+        payment.provider_payment_id = provider_payment_id
+        payment.payment_session_id = payment_session_id
+        payment.amount = amount
+        payment.currency = currency
+        payment.status = PaymentStatus.CREATED
+
+        await self.session.flush()
+
+        return payment
+
+    async def event_exists(
+        self,
+        provider: str,
+        provider_event_id: str,
+    ) -> bool:
+
+        result = await self.session.execute(
+            select(PaymentEvent.id)
+            .where(
+                PaymentEvent.provider == provider,
+                PaymentEvent.provider_event_id == provider_event_id,
+            )
+        )
+
+        return result.first() is not None

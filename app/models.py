@@ -20,6 +20,8 @@ class BookingLifecycle(str, Enum):
     HELD = "held"
     AWAITING_PAYMENT = "awaiting_payment"
     CONFIRMED = "confirmed"
+    CANCELLED = "cancelled"
+    EXPIRED = "expired"
     
 def booking_lifecycle_from_status(status: BookingStatus) -> BookingLifecycle:
     if status == BookingStatus.HOLD:
@@ -68,6 +70,7 @@ class Flight(BaseModel):
     expires_at: datetime | None = None
     requires_instant_payment: bool | None = None
     payment_required_by: datetime | None = None
+    duration_minutes: int | None = None        # Duffel slice.duration (ISO 8601)
     stops: list[Stop]
     
 # Book Flights
@@ -108,6 +111,7 @@ class PaymentStatus(str, Enum):
     PENDING = "pending"
     PAID = "paid"
     FAILED = "failed"
+    EXPIRED = "expired"
     
 class PaymentResult(BaseModel):
     payment_id: str

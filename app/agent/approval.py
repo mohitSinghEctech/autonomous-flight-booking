@@ -1,88 +1,68 @@
 import json
+import uuid
 
 import httpx
-from langchain_core.runnables import RunnableConfig
 from langgraph.types import interrupt
 
 from app.agent.handlers import parse_arguments
 from app.agent.state import AgentState
-from app.api.event_bus import event_bus
-from app.api.events import SSEEvent
+from app.api.views import flight_view, passenger_view
 from app.core.errors import AppError, FlightNotFound
+from app.db.session import SessionLocal
 from app.models import BookFlight
-from app.providers.all_providers import flight_provider
+from app.providers import all_providers
+from app.services.booking import BookingService
 
 
-async def request_booking_approval(
-    tool_call: dict,
-    thread_id: str,
-) -> bool:
+SUPERSEDED_REPLY = "Okay, I've set that aside."
 
-    request = parse_arguments(
-        tool_call,
-        BookFlight,
-    )
 
-    flight = await flight_provider.fetch_flight_details(
-        request.flight_id
-    )
+async def build_booking_approval(tool_call: dict, state: AgentState) -> dict:
+    """
+    Everything the user needs to decide, in contract shape (ApprovalRequiredEvent).
+
+    approval_id comes from the tool call id, so it is the SAME when LangGraph
+    re-runs this node on resume — the API checks the user's answer against it.
+    """
+    request = parse_arguments(tool_call, BookFlight)
+
+    # live price: offers change, and we never book at a price the user didn't see
+    flight = await all_providers.flight_provider.fetch_flight_details(request.flight_id)
 
     if flight is None:
-        raise FlightNotFound(
-            f"Flight {request.flight_id} not found."
+        raise FlightNotFound(f"Flight {request.flight_id} not found.")
+
+    async with SessionLocal() as session:
+        passengers = await BookingService(session).passenger_repository.get_passengers_by_ids(
+            [uuid.UUID(pid) for pid in request.passenger_ids]
         )
 
-    message = (
-        f"I found {flight.flight_name} from "
-        f"{flight.origin.airport_code} "
-        f"to {flight.destination.airport_code}. "
-        f"Departure: {flight.departure_datetime}. "
-        f"Arrival: {flight.arrival_datetime}. "
-        f"Price: {flight.price} {flight.currency} total. "
-        f"Passengers: {len(request.passenger_ids)}. "
-        f"Would you like me to proceed with the booking?"
-    )
+    held = (state.get("booking") or {}).get("lifecycle") in ("held", "awaiting_payment")
+    kind = "change" if held else "book"
 
-    approval_data = {
-        "type": "approval_required",
-        "message": message,
-        "tool": "book_flight",
-        "arguments": request.model_dump(mode="json"),
-        "flight": flight.model_dump(mode="json"),
+    return {
+        "approval_id": f"ap_{tool_call['id']}",
+        "kind": kind,
+        "flight_id": flight.flight_id,
+        "flight": flight_view(flight),
+        "passengers": [passenger_view(p) for p in passengers],
+        "total_amount": flight.price,
+        "currency": flight.currency,
+        "message": (
+            f"{'Switch to' if kind == 'change' else 'Hold'} {flight.flight_name} "
+            f"{flight.origin.airport_code} → {flight.destination.airport_code} "
+            f"for {flight.price:.2f} {flight.currency}?"
+        ),
     }
 
-    # The runner publishes approval.required from this value when the graph
-    # pauses. Publishing it here would send it twice: on resume LangGraph
-    # re-runs this whole node, and interrupt() only then returns the answer.
-    answer = interrupt(approval_data)
 
-    approved = (
-        str(answer)
-        .strip()
-        .lower()
-        in {"yes", "y", "true", "approve", "approved"}
-    )
-
-    await event_bus.publish(
-        thread_id,
-        SSEEvent(
-            event="approval.resolved",
-            data={
-                "approved": approved,
-            },
-        ),
-    )
-
-    return approved
-
-
-async def approval_node(state: AgentState, config: RunnableConfig):
-
+async def approval_node(state: AgentState):
+    """
+    Pauses before book_flight runs. interrupt() hands the approval to the runner
+    (which publishes approval.required) and, on resume, returns the decision:
+    "approved" | "rejected" | "superseded".
+    """
     tool_calls = state["messages"][-1]["tool_calls"]
-
-    # thread_id is not part of the state (LangGraph drops undeclared keys);
-    # it arrives in the config the runner passes to ainvoke.
-    thread_id = config["configurable"]["thread_id"]
 
     for tool_call in tool_calls:
 
@@ -90,28 +70,20 @@ async def approval_node(state: AgentState, config: RunnableConfig):
             continue
 
         try:
+            approval = await build_booking_approval(tool_call, state)
 
-            approved = await request_booking_approval(
-                tool_call,
-                thread_id,
-            )
+        except (AppError, httpx.HTTPError) as exc:
+            return skip_tool_calls(tool_calls, f"Could not prepare booking: {exc}")
 
-        except (
-            AppError,
-            httpx.HTTPError,
-        ) as exc:
+        decision = interrupt({"type": "approval", "approval": approval})
 
-            return skip_tool_calls(
-                tool_calls,
-                f"Could not prepare booking: {exc}",
-            )
+        if decision == "approved":
+            continue
 
-        if not approved:
+        if decision == "superseded":
+            return supersede(tool_calls, "The user moved on to a different request.")
 
-            return skip_tool_calls(
-                tool_calls,
-                "The user declined the booking.",
-            )
+        return skip_tool_calls(tool_calls, "The user declined the booking.")
 
     return {}
 
@@ -120,18 +92,24 @@ def skip_tool_calls(
     tool_calls: list[dict],
     reason: str,
 ):
+    """Every tool call must get a tool reply, or the next LLM call is rejected."""
 
     return {
         "messages": [
             {
                 "role": "tool",
                 "tool_call_id": tool_call["id"],
-                "content": json.dumps(
-                    {
-                        "error": reason,
-                    }
-                ),
+                "content": json.dumps({"error": reason}),
             }
             for tool_call in tool_calls
         ]
     }
+
+
+def supersede(tool_calls: list[dict], reason: str):
+    """Close the paused request quietly: tool replies + a short assistant line -> END."""
+
+    result = skip_tool_calls(tool_calls, reason)
+    result["messages"].append({"role": "assistant", "content": SUPERSEDED_REPLY})
+
+    return result
