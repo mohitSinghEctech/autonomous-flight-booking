@@ -10,6 +10,8 @@ import hmac
 import json
 import re
 import uuid
+
+from app.core.errors import OfferUnavailable
 from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
 
@@ -58,6 +60,8 @@ class FakeFlightProvider(FlightProvider):
             ]
         }
         self.booked: list[str] = []
+        self.attempts: list[str] = []
+        self.gone: set[str] = set()          # offers the "airline" refuses (offer_no_longer_available)
         self.cancelled: list[str] = []
 
     @property
@@ -71,6 +75,9 @@ class FakeFlightProvider(FlightProvider):
         return self.offers.get(flight_id)
 
     async def book_flight(self, request, flight, passengers):
+        self.attempts.append(flight.flight_id)
+        if flight.flight_id in self.gone:
+            raise OfferUnavailable(flight.flight_id)
         self.booked.append(flight.flight_id)
         n = len(self.booked)
         return BookingResult(

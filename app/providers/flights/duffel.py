@@ -1,7 +1,7 @@
 import os
 import re
 
-from app.core.errors import AppError
+from app.core.errors import AppError, OfferUnavailable, ProviderError
 from app.models import Flight, Passenger, SearchFlights, BookFlight, Stop, Airport, Cabin, BookingResult
 from .base import FlightProvider
 
@@ -127,7 +127,7 @@ class DuffelFlightProvider(FlightProvider):
                 timeout=30,
             )
 
-            response.raise_for_status()
+            raise_for_duffel(response, flight.flight_id)
 
             result = response.json()["data"]
             return BookingResult(
@@ -178,6 +178,22 @@ class DuffelFlightProvider(FlightProvider):
 
             return response.json()["data"]
     
+
+OFFER_GONE = {"offer_no_longer_available", "offer_expired"}
+
+
+def raise_for_duffel(response: httpx.Response, flight_id: str | None = None) -> None:
+    """Turn Duffel's error body into an error the agent can act on."""
+    if response.is_success:
+        return
+    try:
+        error = response.json()["errors"][0]
+    except (ValueError, KeyError, IndexError):
+        response.raise_for_status()
+    if error.get("code") in OFFER_GONE and flight_id:
+        raise OfferUnavailable(flight_id)
+    raise ProviderError(f"{error.get('title', 'Provider error')}: {error.get('message', '')}".strip(": "))
+
 
 def map_duffel_offer(offer: dict) -> Flight:
     slice_ = offer["slices"][0]

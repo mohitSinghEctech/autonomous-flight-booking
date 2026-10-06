@@ -178,3 +178,26 @@ async def test_same_client_id_runs_once(session, fakes):
     await session.turn_done()
     users = [m for m in session.stream.of("message") if m["data"]["role"] == "user"]
     assert len(users) == 1
+
+
+async def test_a_fare_the_airline_refused_is_never_offered_for_approval_again(session, fakes):
+    dead = fakes.flights.cheapest.flight_id
+    fakes.flights.gone.add(dead)
+
+    approval = await session.until_approval()
+    start = session.stream.last_id
+    await session.approve(approval["approval_id"])
+    await session.turn_done(after=start)
+
+    steps = [s["data"] for s in session.stream.of("step")]
+    hold_id = [s["id"] for s in steps if s.get("tool") == "book_flight"][-1]
+    finished = [s for s in steps if s["id"] == hold_id and s.get("status") == "failed"][-1]
+    assert finished["detail"] == "Fare no longer available"
+    assert not session.stream.of("booking.updated")
+
+    start = session.stream.last_id
+    await session.say(f"Book {dead} again please")
+    await session.turn_done(after=start)
+
+    assert not [e for e in session.stream.of("approval.required") if e["id"] > start]
+    assert fakes.flights.attempts == [dead]                       # the airline was asked once

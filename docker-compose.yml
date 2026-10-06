@@ -3,17 +3,41 @@ services:
     image: postgres:17
     container_name: flight_booking_postgres
     restart: unless-stopped
-
     environment:
       POSTGRES_DB: flight_booking
       POSTGRES_USER: flight_user
       POSTGRES_PASSWORD: flight_password
-
     ports:
       - "5432:5432"
-
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flight_user -d flight_booking"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  migrate:
+    build: .
+    image: flight-api
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://flight_user:flight_password@postgres:5432/flight_booking
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    image: flight-api
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://flight_user:flight_password@postgres:5432/flight_booking
+    ports:
+      - "8000:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
 
 volumes:
   postgres_data:

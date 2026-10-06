@@ -69,6 +69,13 @@ async def approval_node(state: AgentState):
         if tool_call["function"]["name"] != "book_flight":
             continue
 
+        flight_id = json.loads(tool_call["function"]["arguments"] or "{}").get("flight_id")
+        if flight_id in (state.get("unavailable_offers") or []):
+            return skip_tool_calls(
+                tool_calls,
+                "This fare is no longer available. Do not retry it; search again for current fares.",
+            )
+
         try:
             approval = await build_booking_approval(tool_call, state)
 
