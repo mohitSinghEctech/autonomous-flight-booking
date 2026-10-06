@@ -52,11 +52,12 @@ async def main():
     interrupts = result.get("__interrupt__")
 
     if interrupts:
-        print(interrupts[0].value["message"])
+        value = interrupts[0].value
+        print((value.get("approval") or value.get("request") or value)["message"])
         approval = input("Your response (yes/no): ")
 
         result = await graph.ainvoke(
-            Command(resume=approval),
+            Command(resume="approved" if approval.strip().lower() in {"y", "yes"} else "rejected"),
             config=config
         )
 

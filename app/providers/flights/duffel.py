@@ -1,4 +1,5 @@
 import os
+import re
 
 from app.core.errors import AppError
 from app.models import Flight, Passenger, SearchFlights, BookFlight, Stop, Airport, Cabin, BookingResult
@@ -138,6 +139,26 @@ class DuffelFlightProvider(FlightProvider):
                 payment_required_by=result["payment_status"].get("payment_required_by")
             )
 
+    async def cancel_order(self, provider_booking_id: str) -> None:
+        """Duffel cancels in two steps: create a cancellation quote, then confirm it."""
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{self.base_url}/air/order_cancellations",
+                headers=self.headers,
+                json={"data": {"order_id": provider_booking_id}},
+                timeout=30,
+            )
+            response.raise_for_status()
+
+            cancellation_id = response.json()["data"]["id"]
+
+            confirm = await client.post(
+                f"{self.base_url}/air/order_cancellations/{cancellation_id}/actions/confirm",
+                headers=self.headers,
+                timeout=30,
+            )
+            confirm.raise_for_status()
+
     async def fetch_flight_details(self, flight_id: str) -> Flight | None:
         result = await self._fetch_raw_offer(flight_id)
         return map_duffel_offer(result)
@@ -219,5 +240,22 @@ def map_duffel_offer(offer: dict) -> Flight:
         payment_required_by=payment_requirements.get(
             "payment_required_by"
         ),
+        duration_minutes=parse_iso_duration(slice_.get("duration")),
         stops=stops,
     )
+
+_DURATION = re.compile(r"^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?)?$")
+
+
+def parse_iso_duration(value: str | None) -> int | None:
+    """'PT3H29M' -> 209, 'P1DT2H' -> 1560. Departure/arrival are local times,
+    so the provider's duration is the only correct flight length."""
+    if not value:
+        return None
+
+    match = _DURATION.match(value)
+    if not match:
+        return None
+
+    days, hours, minutes = (int(part or 0) for part in match.groups())
+    return days * 1440 + hours * 60 + minutes

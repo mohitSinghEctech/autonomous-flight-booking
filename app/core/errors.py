@@ -28,3 +28,12 @@ class InvalidUpstreamResponse(AppError):
 class PassengerNotFound(AppError):
     pass
 
+class BookingNotPayable(AppError):
+    pass
+
+class NoActiveBooking(AppError):
+    pass
+
+class PaymentNotFound(AppError):
+    pass
+

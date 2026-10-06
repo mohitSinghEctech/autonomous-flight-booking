@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from openai import APIConnectionError, APITimeoutError, AsyncOpenAI, RateLimitError
 
 from app.agent.state import AgentState
+from app.api import progress
 from app.core.errors import (
     InvalidUpstreamResponse,
     UpstreamRateLimited,
@@ -60,6 +61,25 @@ TOOLS = [
         "parameters": NO_ARGUMENTS,
     },
     {
+        "name": "request_passenger_details",
+        "description": (
+            "Ask the user to add passenger details that are not saved yet. "
+            "Call this ALONE (no other tool in the same message) when the trip needs more "
+            "passengers than get_saved_passengers returned, or when a saved passenger has "
+            "missing_details. count = how many new passengers are needed. "
+            "Never invent passenger names or details."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "count": {"type": "integer", "minimum": 1, "maximum": 9},
+                "reason": {"type": "string", "description": "One short sentence shown to the user."},
+            },
+            "required": ["count"],
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "create_payment",
         "description": (
             "Create a payment for the current held booking. "
@@ -83,10 +103,25 @@ TOOLS = [
 ]
 
 
+GUIDE = (
+    "You are ATLAS, a flight booking assistant. "
+    "Search with search_flights, check travellers with get_saved_passengers, then book with book_flight "
+    "using passenger ids for exactly the number of passengers searched. "
+    "The application asks the user to approve every booking; do not ask for confirmation yourself. "
+    "If a flight_id is given by the user, use that exact flight. "
+    "If passengers are missing or incomplete, call request_passenger_details. "
+    "Payments happen with buttons in the app; you don't need to collect card details. "
+    "Messages starting with [app] are facts from the application about changes made outside the chat; "
+    "they override anything said earlier. Booking states: held or awaiting_payment = active; "
+    "confirmed = paid; cancelled or expired = no active booking, so you may book again. "
+    "Keep replies short."
+)
+
+
 def build_messages(state: AgentState) -> list[dict]:
     """Conversation history, plus the app's booking/payment state if any."""
 
-    messages = list(state["messages"])
+    messages = [{"role": "system", "content": GUIDE}, *state["messages"]]
 
     booking = state.get("booking")
     payment = state.get("payment")
@@ -95,7 +130,7 @@ def build_messages(state: AgentState) -> list[dict]:
         payment_status = payment["status"] if payment else "none"
 
         messages.insert(
-            0,
+            1,
             {
                 "role": "system",
                 "content": (
@@ -167,13 +202,36 @@ FALLBACK_REPLIES = {
 
 
 async def safe_call_llm(state: AgentState):
-    """LLM node: upstream failures become a polite assistant reply."""
+    """LLM node: reports a step, publishes any text it says, and turns upstream
+    failures into a polite assistant reply."""
+
+    turn = progress.current_turn()
+    first = turn is None or turn.llm_calls == 0
+    if turn:
+        turn.llm_calls += 1
+
+    step_id = await progress.start_step(
+        "llm",
+        "Understanding your request" if first else "Deciding the next step",
+        stage="thinking",
+        status_text="Thinking…",
+    )
 
     try:
-        return await call_llm(state)
+        result = await call_llm(state)
+        step_status = "done"
     except tuple(FALLBACK_REPLIES) as exc:
-        return {
+        result = {
             "messages": [
                 {"role": "assistant", "content": FALLBACK_REPLIES[type(exc)]}
             ]
         }
+        step_status = "failed"
+
+    await progress.finish_step(step_id, status=step_status)
+
+    text = (result["messages"][0].get("content") or "").strip()
+    if text:
+        await progress.publish_message("assistant", text)
+
+    return result

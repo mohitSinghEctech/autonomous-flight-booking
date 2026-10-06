@@ -23,6 +23,8 @@ class BookingStatus(str, Enum):
     HELD = "hold"
     AWAITING_PAYMENT = "awaiting_payment"
     CONFIRMED = "confirmed"
+    CANCELLED = "cancelled"
+    EXPIRED = "expired"
 
 
 class PaymentStatus(str, Enum):
@@ -30,6 +32,7 @@ class PaymentStatus(str, Enum):
     PENDING = "pending"
     PAID = "paid"
     FAILED = "failed"
+    EXPIRED = "expired"
 
 
 class User(Base):

@@ -1,22 +1,27 @@
 import asyncio
 
 from app.api.events import SSEEvent
+from app.api.sessions import session_store
+
+
+HISTORY_LIMIT = 500
 
 
 class SessionEventBus:
+    """
+    Per-conversation pub/sub.
+
+        publish(): give the event the next id, keep it in history,
+                   update the session projection, fan out to open streams.
+        subscribe(): one queue per open browser tab.
+
+    Event ids increase per thread and are never reused, so a browser can
+    say "I have up to 41" (Last-Event-ID) and ignore duplicates.
+    """
 
     def __init__(self):
         self._subscribers: dict[str, set[asyncio.Queue[SSEEvent]]] = {}
-
-        # Event history per conversation.
-        #
-        # Example:
-        # thread_id -> [event1, event2, event3]
         self._history: dict[str, list[SSEEvent]] = {}
-
-        # Last event ID generated for each conversation.
-        #
-        # thread_id -> 3
         self._next_event_id: dict[str, int] = {}
 
     async def subscribe(
@@ -31,10 +36,6 @@ class SessionEventBus:
 
         history = self._history.get(thread_id, [])
 
-        # No Last-Event-ID means this is a fresh connection.
-        #
-        # We don't replay old events here because the connection
-        # will receive a snapshot separately.
         if last_event_id is None:
             replay = []
         else:
@@ -67,23 +68,23 @@ class SessionEventBus:
         self,
         thread_id: str,
         event: SSEEvent,
-    ) -> None:
+    ) -> SSEEvent:
 
-        # Generate monotonically increasing IDs per conversation.
         event_id = self._next_event_id.get(thread_id, 0) + 1
-
         self._next_event_id[thread_id] = event_id
-
         event.event_id = event_id
 
-        # Store event for reconnect/replay.
-        self._history.setdefault(thread_id, []).append(event)
+        history = self._history.setdefault(thread_id, [])
+        history.append(event)
+        del history[:-HISTORY_LIMIT]
 
-        subscribers = self._subscribers.get(thread_id, set())
+        # keep the snapshot projection in step with what browsers receive
+        session_store.apply(thread_id, event.event, event.data)
 
-        # Send to all currently connected clients.
-        for queue in subscribers:
-            await queue.put(event)
+        for queue in self._subscribers.get(thread_id, set()):
+            queue.put_nowait(event)
+
+        return event
 
     def get_history(
         self,
@@ -95,9 +96,9 @@ class SessionEventBus:
     def get_last_event_id(
         self,
         thread_id: str,
-    ) -> int | None:
+    ) -> int:
 
-        return self._next_event_id.get(thread_id)
+        return self._next_event_id.get(thread_id, 0)
 
 
 event_bus = SessionEventBus()
