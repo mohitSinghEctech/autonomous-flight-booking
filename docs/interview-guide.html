@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Flight Agent Guide</title>
+<style>
+:root{
+  --bg:#fbfaf7;--panel:#ffffff;--ink:#1c1f24;--mute:#5d6470;--line:#e3e0d8;
+  --acc:#2f5bd3;--acc2:#0f8a6a;--warn:#b5521b;--code:#f3f1ec;--hl:#fff4d6;
+  --n1:#e8eefc;--n2:#e3f4ee;--n3:#fdeee3;--n4:#f1e9fb;--n5:#eef0f2;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#14161a;--panel:#1b1e23;--ink:#e6e8eb;--mute:#9aa2ad;--line:#2c3038;
+  --acc:#7da0ff;--acc2:#4fd1a8;--warn:#f0a070;--code:#22262c;--hl:#3a3220;
+  --n1:#1f2a44;--n2:#173229;--n3:#3a2a1e;--n4:#2d2340;--n5:#262a30;}}
+:root[data-theme="dark"]{
+  --bg:#14161a;--panel:#1b1e23;--ink:#e6e8eb;--mute:#9aa2ad;--line:#2c3038;
+  --acc:#7da0ff;--acc2:#4fd1a8;--warn:#f0a070;--code:#22262c;--hl:#3a3220;
+  --n1:#1f2a44;--n2:#173229;--n3:#3a2a1e;--n4:#2d2340;--n5:#262a30;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif}
+.layout{display:grid;grid-template-columns:250px 1fr;max-width:1240px;margin:0 auto}
+nav{position:sticky;top:0;height:100vh;overflow:auto;padding:28px 16px;border-right:1px solid var(--line);font-size:14px}
+nav b{display:block;margin:14px 0 6px;color:var(--mute);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+nav a{display:block;color:var(--ink);text-decoration:none;padding:3px 8px;border-radius:6px}
+nav a:hover{background:var(--code)}
+main{padding:32px 40px 120px;min-width:0}
+h1{font-size:32px;margin:0 0 6px}
+h2{font-size:24px;margin:56px 0 12px;padding-top:12px;border-top:1px solid var(--line)}
+h3{font-size:18px;margin:28px 0 8px}
+p,li{max-width:76ch}
+.sub{color:var(--mute);margin:0 0 24px}
+code{background:var(--code);padding:1px 5px;border-radius:4px;font:13.5px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace}
+pre{background:var(--code);padding:14px 16px;border-radius:8px;overflow:auto;font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;max-width:100%}
+pre code{background:none;padding:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 20px;margin:16px 0}
+.say{border-left:4px solid var(--acc2);background:var(--panel);padding:12px 18px;border-radius:0 8px 8px 0;margin:14px 0}
+.say::before{content:"Say it like this";display:block;font-size:12px;font-weight:700;color:var(--acc2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+.warn{border-left:4px solid var(--warn);background:var(--panel);padding:12px 18px;border-radius:0 8px 8px 0;margin:14px 0}
+.warn::before{content:"Watch out";display:block;font-size:12px;font-weight:700;color:var(--warn);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+.ios{border-left:4px solid var(--acc);background:var(--panel);padding:12px 18px;border-radius:0 8px 8px 0;margin:14px 0}
+.ios::before{content:"iOS analogy";display:block;font-size:12px;font-weight:700;color:var(--acc);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:14.5px;display:block;overflow-x:auto}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+th{background:var(--code)}
+.diagram{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;margin:16px 0;overflow-x:auto}
+.diagram svg{display:block;width:100%;height:auto;min-width:640px}
+svg text{fill:var(--ink);font:13px -apple-system,Segoe UI,sans-serif}
+svg .m{fill:var(--mute);font-size:11.5px}
+svg .t{font-weight:700}
+svg .ln{stroke:var(--mute);stroke-width:1.5;fill:none}
+svg .la{stroke:var(--acc);stroke-width:1.8;fill:none}
+svg .lw{stroke:var(--warn);stroke-width:1.8;fill:none;stroke-dasharray:5 4}
+svg .b{stroke:var(--line);stroke-width:1.2}
+svg .b1{fill:var(--n1)} svg .b2{fill:var(--n2)} svg .b3{fill:var(--n3)} svg .b4{fill:var(--n4)} svg .b5{fill:var(--n5)}
+details{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 16px;margin:10px 0}
+summary{cursor:pointer;font-weight:600}
+details[open] summary{margin-bottom:8px}
+.pill{display:inline-block;font-size:12px;padding:1px 8px;border-radius:99px;background:var(--code);color:var(--mute);margin-left:6px}
+@media (max-width:860px){.layout{grid-template-columns:1fr}nav{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line)}main{padding:20px 16px 80px}}
+</style>
+</head>
+<body>
+<div class="layout">
+<nav>
+  <b>Start</b>
+  <a href="#pitch">1. The 60-second pitch</a>
+  <a href="#arch">2. High-level architecture</a>
+  <a href="#life">3. Life of one message</a>
+  <a href="#graph">4. The LangGraph graph</a>
+  <b>Modules</b>
+  <a href="#m-state">5. agent/state.py</a>
+  <a href="#m-llm">6. agent/llm.py</a>
+  <a href="#m-approval">7. agent/approval.py</a>
+  <a href="#m-tools">8. agent/tools.py + handlers.py</a>
+  <a href="#m-mcp">9. mcp/ server + client</a>
+  <a href="#m-services">10. services/ + db/</a>
+  <a href="#m-pay">11. Payments + webhook</a>
+  <a href="#m-api">12. api/: routes, runner, SSE</a>
+  <a href="#m-persist">13. Restarts + persistence</a>
+  <a href="#m-auth">14. Auth, logging, errors</a>
+  <a href="#m-tests">15. Tests</a>
+  <b>Interview</b>
+  <a href="#concepts">16. Concept cheat sheet</a>
+  <a href="#stories">17. Real bug stories</a>
+  <a href="#limits">18. Honest limitations</a>
+  <a href="#qa">19. Questions + answers</a>
+  <a href="#alignerr">20. Alignerr mapping</a>
+  <a href="#quiz">21. Self-quiz</a>
+</nav>
+
+<main>
+<h1>Flight Booking Agent: Interview Guide</h1>
+<p class="sub">Your project, from the big picture down to each module. Everything here is checked against the code in <code>flight_booking/app</code>. In interviews, call it "my agentic flight booking assistant".</p>
+
+<!-- 1 -->
+<h2 id="pitch">1. The 60-second pitch</h2>
+<div class="say">I built a flight booking assistant as a LangGraph agent. The user chats in plain language; the LLM decides which tool to call: search flights, load saved passengers, hold a seat, or create a payment. Flight search goes through an MCP tool server in front of the Duffel airline API, and payments go through Cashfree.<br><br>
+The core design rule is that <b>the model proposes and the application decides</b>. Booking is irreversible, so the graph pauses with a LangGraph <b>interrupt</b> and a human must approve. Approvals are idempotent and expire with the fare. The payment status is a state machine where <i>paid</i> is final, and webhooks are HMAC-verified and deduplicated.<br><br>
+It's served by FastAPI. Sending a message returns 202 immediately, the agent runs in the background, and progress streams to the browser over Server-Sent Events. State lives in PostgreSQL, including the LangGraph checkpointer, so a paused approval survives a restart. It has 62 integration tests against a real server and a real database.</div>
+
+<div class="card"><b>Five words to remember:</b> tools · interrupt · state machine · SSE · checkpointer. If you can explain each one in your own project, you can answer most questions.</div>
+
+<!-- 2 -->
+<h2 id="arch">2. High-level architecture</h2>
+<p>Four layers. Each one has a single job, and calls only go downward.</p>
+
+<div class="diagram">
+<svg viewBox="0 0 900 560" role="img" aria-label="Architecture diagram">
+  <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="#8a919c"/></marker></defs>
+  <!-- browser -->
+  <rect class="b b5" x="20" y="20" width="200" height="80" rx="10"/>
+  <text class="t" x="40" y="48">Browser UI</text>
+  <text class="m" x="40" y="68">chat · approval card</text>
+  <text class="m" x="40" y="84">payment button</text>
+  <!-- API -->
+  <rect class="b b1" x="280" y="20" width="340" height="120" rx="10"/>
+  <text class="t" x="300" y="46">API layer  (app/api)</text>
+  <text class="m" x="300" y="68">routes.py: POST → 202 Accepted</text>
+  <text class="m" x="300" y="84">auth.py: Firebase JWT (RS256)</text>
+  <text class="m" x="300" y="100">runner.py: one background "turn"</text>
+  <text class="m" x="300" y="116">event_bus.py: SSE stream, event ids</text>
+  <!-- agent -->
+  <rect class="b b4" x="280" y="180" width="340" height="110" rx="10"/>
+  <text class="t" x="300" y="206">Agent layer  (app/agent)</text>
+  <text class="m" x="300" y="228">graph.py: LangGraph nodes + routing</text>
+  <text class="m" x="300" y="244">llm.py: OpenAI tool calling</text>
+  <text class="m" x="300" y="260">approval.py: interrupt() = human gate</text>
+  <text class="m" x="300" y="276">handlers.py: tool call → service call</text>
+  <!-- services -->
+  <rect class="b b2" x="280" y="330" width="340" height="90" rx="10"/>
+  <text class="t" x="300" y="356">Services  (app/services)</text>
+  <text class="m" x="300" y="378">BookingService · PaymentService</text>
+  <text class="m" x="300" y="394">business rules, state machine, commit</text>
+  <!-- db -->
+  <rect class="b b5" x="280" y="460" width="340" height="80" rx="10"/>
+  <text class="t" x="300" y="486">PostgreSQL</text>
+  <text class="m" x="300" y="506">users · bookings · payments · payment_events</text>
+  <text class="m" x="300" y="522">chat_sessions · LangGraph checkpoints</text>
+  <!-- right externals -->
+  <rect class="b b3" x="680" y="180" width="200" height="60" rx="10"/>
+  <text class="t" x="698" y="206">LLM (OpenAI API)</text>
+  <text class="m" x="698" y="224">semaphore 3 · 5 req/s</text>
+  <rect class="b b3" x="680" y="270" width="200" height="70" rx="10"/>
+  <text class="t" x="698" y="296">MCP server (stdio)</text>
+  <text class="m" x="698" y="314">search_flights tool</text>
+  <text class="m" x="698" y="330">→ Duffel API</text>
+  <rect class="b b3" x="680" y="370" width="200" height="60" rx="10"/>
+  <text class="t" x="698" y="396">Duffel (direct)</text>
+  <text class="m" x="698" y="414">offer details · hold · cancel</text>
+  <rect class="b b3" x="680" y="460" width="200" height="60" rx="10"/>
+  <text class="t" x="698" y="486">Cashfree</text>
+  <text class="m" x="698" y="504">create order · status</text>
+  <!-- arrows -->
+  <path class="la" d="M220 50 H280" marker-end="url(#ar)"/>
+  <text class="m" x="226" y="42">POST</text>
+  <path class="la" d="M280 110 H220" marker-end="url(#ar)"/>
+  <text class="m" x="230" y="128">SSE</text>
+  <path class="ln" d="M450 140 V180" marker-end="url(#ar)"/>
+  <path class="ln" d="M450 290 V330" marker-end="url(#ar)"/>
+  <path class="ln" d="M450 420 V460" marker-end="url(#ar)"/>
+  <path class="ln" d="M620 210 H680" marker-end="url(#ar)"/>
+  <path class="ln" d="M620 270 H680 V290" marker-end="url(#ar)"/>
+  <path class="ln" d="M620 385 H680" marker-end="url(#ar)"/>
+  <path class="ln" d="M620 405 C650 405 650 490 680 490" marker-end="url(#ar)"/>
+  <path class="lw" d="M780 520 C780 552 250 552 250 140 L280 140" marker-end="url(#ar)"/>
+  <text class="m" x="20" y="548" style="fill:var(--warn)">Cashfree webhook → /webhooks/cashfree (HMAC verified, deduplicated)</text>
+</svg>
+</div>
+
+<table>
+<tr><th>Layer</th><th>Its single job</th><th>Must NOT do</th></tr>
+<tr><td><b>API</b></td><td>HTTP, auth, the turn lock, streaming events</td><td>business rules</td></tr>
+<tr><td><b>Graph</b> (graph.py)</td><td><b>Orchestration</b>: which node runs next</td><td>DB or provider calls</td></tr>
+<tr><td><b>Handlers</b></td><td><b>Translation</b>: LLM tool call ↔ typed service call</td><td>decide what's allowed</td></tr>
+<tr><td><b>Services</b></td><td><b>Rules</b>: what's allowed; they own the DB commit</td><td>know about LLM or HTTP</td></tr>
+<tr><td><b>Repositories</b></td><td>SQL; <code>flush</code> only, never commit</td><td>rules</td></tr>
+<tr><td><b>Providers</b></td><td>Talk to Duffel / Cashfree; behind interfaces so tests use fakes</td><td>touch the DB</td></tr>
+</table>
+<div class="say">Graph is orchestration, handler is translation, service is rules. That separation is why I could test the payment state machine without an LLM, and swap Duffel for a fake in tests.</div>
+<div class="ios">Graph ≈ Coordinator, handler ≈ ViewModel mapping, service ≈ domain/use-case layer, repository ≈ Core Data store wrapper, provider ≈ a protocol-backed network client you mock in XCTest.</div>
+
+<!-- 3 -->
+<h2 id="life">3. Life of one message</h2>
+<p>What happens when the user types "Book me DEL to DXB on Nov 20":</p>
+<div class="diagram">
+<svg viewBox="0 0 900 470" role="img" aria-label="Sequence diagram">
+  <defs><marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="#8a919c"/></marker></defs>
+  <g>
+    <rect class="b b5" x="20" y="10" width="120" height="34" rx="6"/><text class="t" x="44" y="32">Browser</text>
+    <rect class="b b1" x="200" y="10" width="120" height="34" rx="6"/><text class="t" x="222" y="32">routes.py</text>
+    <rect class="b b1" x="380" y="10" width="120" height="34" rx="6"/><text class="t" x="404" y="32">runner.py</text>
+    <rect class="b b4" x="560" y="10" width="120" height="34" rx="6"/><text class="t" x="590" y="32">graph</text>
+    <rect class="b b1" x="740" y="10" width="140" height="34" rx="6"/><text class="t" x="764" y="32">event_bus</text>
+  </g>
+  <path class="ln" d="M80 44V460 M260 44V460 M440 44V460 M620 44V460 M810 44V460" style="stroke-dasharray:3 4"/>
+  <path class="la" d="M80 75H260" marker-end="url(#a2)"/><text class="m" x="90" y="68">1. POST /sessions/{id}/messages</text>
+  <text class="m" x="270" y="98">2. auth · turn lock (409 if busy)</text>
+  <path class="la" d="M260 120H80" marker-end="url(#a2)"/><text class="m" x="100" y="114">3. 202 Accepted (instant)</text>
+  <path class="ln" d="M260 145H440" marker-end="url(#a2)"/><text class="m" x="270" y="139">4. create_task(turn)</text>
+  <path class="ln" d="M440 180H620" marker-end="url(#a2)"/><text class="m" x="450" y="174">5. graph.ainvoke(msg, thread_id)</text>
+  <text class="m" x="630" y="210">6. llm → tools(search) → llm</text>
+  <text class="m" x="630" y="226">   → approval: interrupt()</text>
+  <path class="ln" d="M620 250H810" marker-end="url(#a2)"/><text class="m" x="640" y="244">7. step / message events</text>
+  <path class="la" d="M810 280H80" marker-end="url(#a2)"/><text class="m" x="300" y="274">8. SSE: turn.started, step.*, message, approval.required</text>
+  <path class="ln" d="M620 310H440" marker-end="url(#a2)"/><text class="m" x="450" y="304">9. __interrupt__ returned</text>
+  <text class="m" x="450" y="330">10. status = awaiting_approval, lock freed</text>
+  <path class="la" d="M80 370H260" marker-end="url(#a2)"/><text class="m" x="90" y="364">11. POST /approvals/{id} approved</text>
+  <path class="ln" d="M260 400H620" marker-end="url(#a2)"/><text class="m" x="290" y="394">12. Command(resume="approved") → book_flight runs</text>
+  <path class="la" d="M810 440H80" marker-end="url(#a2)"/><text class="m" x="300" y="434">13. SSE: booking.updated (held), turn.completed</text>
+</svg>
+</div>
+<div class="say">Agent turns take 5–20 seconds, so I don't hold the HTTP request open. The POST returns 202 Accepted, the turn runs as a background task, and the browser follows along on one long-lived SSE stream. Only one turn runs per conversation: a second POST while busy gets a 409 with <code>retryable: true</code>.</div>
+
+<!-- 4 -->
+<h2 id="graph">4. The LangGraph graph</h2>
+<div class="diagram">
+<svg viewBox="0 -20 900 400" role="img" aria-label="Graph diagram">
+  <defs><marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="#8a919c"/></marker></defs>
+  <circle class="b b5" cx="60" cy="180" r="28"/><text class="t" x="40" y="185">START</text>
+  <rect class="b b3" x="150" y="150" width="130" height="60" rx="30"/><text class="t" x="200" y="186">llm</text>
+  <rect class="b b2" x="430" y="30" width="160" height="56" rx="10"/><text class="t" x="460" y="56">passengers</text><text class="m" x="452" y="74">interrupt: ask user</text>
+  <rect class="b b4" x="430" y="150" width="160" height="60" rx="10"/><text class="t" x="466" y="176">approval</text><text class="m" x="446" y="196">interrupt: human gate</text>
+  <rect class="b b1" x="430" y="280" width="160" height="56" rx="10"/><text class="t" x="486" y="306">tools</text><text class="m" x="452" y="324">run handlers</text>
+  <circle class="b b5" cx="820" cy="180" r="28"/><text class="t" x="806" y="185">END</text>
+  <path class="ln" d="M88 180H150" marker-end="url(#a3)"/>
+  <path class="la" d="M280 165 C350 120 370 60 430 58" marker-end="url(#a3)"/><text class="m" x="300" y="100">request_passenger_details</text>
+  <path class="la" d="M280 180H430" marker-end="url(#a3)"/><text class="m" x="320" y="172">book_flight</text>
+  <path class="la" d="M280 196 C350 240 370 300 430 306" marker-end="url(#a3)"/><text class="m" x="300" y="268">any other tool</text>
+  <path class="la" d="M215 150 C260 0 700 0 800 156" marker-end="url(#a3)"/><text class="m" x="560" y="-4">no tool call → END (reply to user)</text>
+  <path class="ln" d="M430 322 C250 360 215 300 215 212" marker-end="url(#a3)"/><text class="m" x="250" y="356">tools → llm (always)</text>
+  <path class="ln" d="M590 172 C640 230 620 290 590 300" marker-end="url(#a3)"/><text class="m" x="625" y="240">approved</text>
+  <path class="ln" d="M590 188 H792" marker-end="url(#a3)"/><text class="m" x="640" y="180">superseded</text>
+  <path class="ln" d="M430 195 C380 215 320 205 282 200" marker-end="url(#a3)"/><text class="m" x="320" y="225">rejected/expired</text>
+  <path class="ln" d="M590 58 C700 60 790 100 812 154" marker-end="url(#a3)"/><text class="m" x="690" y="70">superseded</text>
+  <path class="ln" d="M430 70 C330 100 260 130 250 150" marker-end="url(#a3)"/>
+</svg>
+</div>
+<p>The router after <code>llm</code> is <code>route_after_llm</code> in <code>graph.py</code>. The order of its checks matters:</p>
+<pre><code>if PASSENGER_TOOL in names:  return "passengers"   # nothing to approve without passengers
+if "book_flight" in names:   return "approval"     # book never runs before a human says yes
+if tool_calls:               return "tools"
+return END</code></pre>
+<div class="say">The safety rule is in the graph's structure, not the prompt. There is no edge from <code>llm</code> straight to booking: every <code>book_flight</code> tool call goes through the approval node. Even if the model is jailbroken into calling book_flight, it still has to stop there for a human.</div>
+<div class="warn">This is a <b>custom loop</b>, not the prebuilt <code>create_react_agent</code>. Be ready to say why: I needed routing on the tool name (approval vs passengers vs plain tools), which the prebuilt agent doesn't give you.</div>
+
+<!-- 5 -->
+<h2 id="m-state">5. <code>agent/state.py</code>: the agent's memory</h2>
+<pre><code>class AgentState(TypedDict):
+    messages: Annotated[list, operator.add]   # reducer: APPEND, don't replace
+    user_id: str
+    booking: dict | None          # shown to the LLM; booking_id = Duffel's ord_…
+    payment: dict | None
+    db_booking_id: str | None     # our Postgres UUID, never shown to the LLM
+    unavailable_offers: list[str] # fares the airline refused</code></pre>
+<h3>Concept: reducers</h3>
+<p>Each node returns a <b>partial update</b>. For <code>messages</code>, the reducer <code>operator.add</code> means "append to the list". Every other key is simply overwritten.</p>
+<h3>Concept: two booking IDs</h3>
+<p><code>booking.booking_id</code> is the <b>provider's</b> id (Duffel <code>ord_…</code>). <code>db_booking_id</code> is <b>our</b> Postgres UUID, used by services and as the Cashfree order id. Keeping our own id out of the LLM's view means the model can't confuse or invent internal ids.</p>
+<div class="warn">A real bug: passing <code>booking: None</code> in every turn's input <b>overwrote</b> the checkpointed booking. The fix was to send only the new message and <code>user_id</code>. Also, LangGraph silently <b>drops input keys not in the schema</b>, so <code>thread_id</code> has to be read from <code>config["configurable"]</code>.</div>
+
+<!-- 6 -->
+<h2 id="m-llm">6. <code>agent/llm.py</code>: tool calling</h2>
+<ul>
+<li><b>TOOLS</b>: JSON Schemas, mostly generated from Pydantic: <code>SearchFlights.model_json_schema()</code>. One source of truth for validation and for the prompt.</li>
+<li><b>GUIDE</b>: the system prompt. Key rules: "the application asks for approval, don't ask yourself"; "if <code>retryable</code> is false, don't call that tool again with the same arguments".</li>
+<li><b>build_messages</b>: adds a second system message with the <i>application's</i> booking and payment state, so the model is told the facts rather than having to remember them.</li>
+<li><b>call_llm</b>: rate limiter → semaphore → <code>client.chat.completions.create(..., tools=...)</code>, then logs duration and tokens.</li>
+<li><b>safe_call_llm</b>: the graph node. It maps timeouts, 429s, connection errors and empty responses to <b>polite fallback replies</b>, so the turn ends cleanly instead of crashing.</li>
+</ul>
+<h3>Concept: semaphore vs rate limiter <span class="pill">asked often</span></h3>
+<table>
+<tr><th></th><th><code>asyncio.Semaphore(3)</code></th><th><code>RateLimiter(rate=5)</code></th></tr>
+<tr><td>Limits</td><td>how many calls are <b>in flight at once</b></td><td>how many calls <b>start per second</b></td></tr>
+<tr><td>Protects against</td><td>too many open connections</td><td>bursts that trigger 429s</td></tr>
+<tr><td>How</td><td>a counter; the 4th caller waits until one finishes</td><td>a lock plus <code>next_time</code>; each caller is scheduled 0.2s after the previous one and sleeps until its slot</td></tr>
+</table>
+<pre><code>async def acquire(self):
+    async with self.lock:                      # only the bookkeeping is locked
+        now = time.monotonic()
+        scheduled = max(now, self.next_time)
+        self.next_time = scheduled + self.interval
+        delay = scheduled - now
+    if delay > 0:
+        await asyncio.sleep(delay)             # sleep OUTSIDE the lock</code></pre>
+<div class="ios">Semaphore ≈ <code>OperationQueue.maxConcurrentOperationCount = 3</code>. The rate limiter is like a throttle on how often operations may <i>start</i>.</div>
+<div class="warn">The LLM call itself has <b>no retry</b> here: a 429 becomes a polite reply. Retries with exponential backoff and jitter are in the <b>Grounded Answer Engine's</b> gateway (<code>retry.py</code>). Don't mix the two projects up in an answer.</div>
+
+<!-- 7 -->
+<h2 id="m-approval">7. <code>agent/approval.py</code>: human in the loop</h2>
+<div class="diagram">
+<svg viewBox="0 0 900 220" role="img" aria-label="Approval flow">
+  <defs><marker id="a4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="#8a919c"/></marker></defs>
+  <rect class="b b4" x="10" y="80" width="150" height="60" rx="8"/><text class="t" x="24" y="106">approval_node</text><text class="m" x="24" y="124">book_flight call seen</text>
+  <rect class="b b5" x="200" y="80" width="150" height="60" rx="8"/><text class="t" x="214" y="106">dead fare?</text><text class="m" x="214" y="124">in unavailable_offers</text>
+  <rect class="b b2" x="390" y="80" width="160" height="60" rx="8"/><text class="t" x="404" y="106">build approval</text><text class="m" x="404" y="124">LIVE price + passengers</text>
+  <rect class="b b3" x="590" y="80" width="140" height="60" rx="8"/><text class="t" x="604" y="106">interrupt()</text><text class="m" x="604" y="124">graph pauses, saved</text>
+  <rect class="b b1" x="770" y="20" width="120" height="40" rx="8"/><text class="m" x="782" y="45">approved → tools</text>
+  <rect class="b b1" x="770" y="70" width="120" height="40" rx="8"/><text class="m" x="782" y="95">rejected → llm</text>
+  <rect class="b b1" x="770" y="120" width="120" height="40" rx="8"/><text class="m" x="782" y="145">expired → llm</text>
+  <rect class="b b1" x="770" y="170" width="120" height="40" rx="8"/><text class="m" x="782" y="195">superseded → END</text>
+  <path class="ln" d="M160 110H200" marker-end="url(#a4)"/><path class="ln" d="M350 110H390" marker-end="url(#a4)"/><path class="ln" d="M550 110H590" marker-end="url(#a4)"/>
+  <path class="ln" d="M730 100 L770 40 M730 105 L770 90 M730 115 L770 140 M730 120 L770 190"/>
+  <path class="lw" d="M275 140 V190 H700"/><text class="m" x="290" y="186">yes → skip, tool error "don't retry"</text>
+</svg>
+</div>
+<h3>Concept: <code>interrupt()</code> and resume</h3>
+<ol>
+<li><code>interrupt(payload)</code> stops the graph and <b>saves state to the checkpointer</b>. The runner sees <code>__interrupt__</code> and publishes <code>approval.required</code>.</li>
+<li>The user clicks. The API calls <code>graph.ainvoke(Command(resume="approved"), config)</code>.</li>
+<li><b>The node re-runs from the top</b>, and this time <code>interrupt()</code> <i>returns</i> the decision.</li>
+</ol>
+<div class="warn">Because the node re-runs, anything before <code>interrupt()</code> runs <b>twice</b>. So: (a) the <code>approval_id</code> comes from the tool call id (<code>ap_{tool_call_id}</code>), which is the same on both runs; (b) <code>approval.required</code> is published by the <b>runner</b>, not inside the node, or it would be sent twice.</div>
+<h3>Concept: the app authorises, not the model</h3>
+<ul>
+<li><b>Idempotent</b>: a double-click with the same decision gets 202 and nothing runs twice (<code>session.resolved</code>). A different decision gets 409 <code>approval_already_resolved</code>.</li>
+<li><b>Expires with the fare</b>: approving after <code>expires_at</code> is turned into <code>"expired"</code> in <code>routes.decide</code>. Nothing is booked.</li>
+<li><b>Live price</b>: the approval card re-fetches the offer, so the user never approves a stale price.</li>
+<li><b>Dead fares</b>: when the airline refuses an offer (<code>OfferUnavailable</code>), its id goes into <code>unavailable_offers</code> and is never offered for approval again.</li>
+</ul>
+<h3>Concept: every tool call needs a reply</h3>
+<p><code>skip_tool_calls()</code> writes a <code>role: tool</code> message for <b>every</b> pending tool call. The OpenAI API rejects the next request if an assistant tool call has no matching tool message.</p>
+
+<!-- 8 -->
+<h2 id="m-tools">8. <code>agent/tools.py</code> + <code>handlers.py</code>: errors as data</h2>
+<pre><code>HANDLERS = {"search_flights": ..., "get_saved_passengers": ..., "book_flight": ...,
+            "create_payment": ..., "complete_payment": ...}
+
+try:
+    return await handler(tool_call, state)
+except OfferUnavailable as exc:   # mark fare dead, retryable: False
+except AppError as exc:           # {"error": "..."}  → back to the LLM
+except httpx.HTTPError as exc:    # "Upstream provider error"</code></pre>
+<div class="say">Expected failures go back to the LLM <b>as data</b>, not exceptions. If the model sends bad arguments, Pydantic raises a <code>ValidationError</code>, I turn it into <code>InvalidToolArguments</code>, and the model sees the error as a tool message and corrects itself on the next step. That's a self-correction loop without a separate retry layer.</div>
+<pre><code>def parse_arguments[T: BaseModel](tool_call, model: type[T]) -> T:
+    try:
+        return model.model_validate_json(tool_call["function"]["arguments"] or "{}")
+    except ValidationError as exc:
+        raise InvalidToolArguments(f"Invalid arguments for {tool_name}: {exc}") from exc</code></pre>
+<ul>
+<li>The airline's response is validated too: <code>Flight.model_validate(...)</code>, and a failure becomes <code>InvalidUpstreamResponse</code>. <b>Never trust either side</b>: not the LLM, not the vendor.</li>
+<li>Tools in one LLM message run <b>in order</b>, and later calls see earlier calls' updates: <code>{**state, **updates}</code>.</li>
+<li>Each tool is a UI "step" (<code>progress.start_step / finish_step</code>), and each is logged with its duration and ok/error.</li>
+</ul>
+<div class="ios"><code>parse_arguments[T: BaseModel]</code> is Python 3.12 generic syntax, like <code>func parse&lt;T: Decodable&gt;(_ type: T.Type)</code> with <code>JSONDecoder</code>.</div>
+
+<!-- 9 -->
+<h2 id="m-mcp">9. <code>mcp/</code>: Model Context Protocol</h2>
+<div class="diagram">
+<svg viewBox="0 0 900 140" role="img" aria-label="MCP diagram">
+  <defs><marker id="a5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="#8a919c"/></marker></defs>
+  <rect class="b b4" x="10" y="40" width="200" height="60" rx="8"/><text class="t" x="24" y="66">handle_search_flights</text><text class="m" x="24" y="84">handlers.py</text>
+  <rect class="b b1" x="260" y="40" width="190" height="60" rx="8"/><text class="t" x="274" y="66">FlightMCPClient</text><text class="m" x="274" y="84">mcp/client.py</text>
+  <rect class="b b3" x="500" y="40" width="190" height="60" rx="8"/><text class="t" x="514" y="66">MCPServer subprocess</text><text class="m" x="514" y="84">mcp/server.py · @mcp.tool</text>
+  <rect class="b b5" x="740" y="40" width="150" height="60" rx="8"/><text class="t" x="754" y="66">Duffel API</text><text class="m" x="754" y="84">offer requests</text>
+  <path class="ln" d="M210 70H260" marker-end="url(#a5)"/><path class="la" d="M450 70H500" marker-end="url(#a5)"/><text class="m" x="440" y="30">stdio · JSON-RPC</text><path class="ln" d="M690 70H740" marker-end="url(#a5)"/>
+</svg>
+</div>
+<ul>
+<li><b>MCP</b> is a standard protocol for exposing tools to AI apps: a server declares tools with typed inputs, and any MCP client can list and call them. Here the transport is <b>stdio</b>: the client starts the server as a subprocess and talks JSON-RPC over stdin/stdout.</li>
+<li>The server (<code>mcp/server.py</code>) uses the MCP SDK v2 <code>MCPServer</code> class (it was called FastMCP in 1.x) with one tool, <code>search_flights</code>. It validates inputs with the same <code>SearchFlights</code> Pydantic model.</li>
+<li>The client passes the environment <b>explicitly</b>: only <code>PATH</code> and <code>FLIGHT_VENDOR_TOKEN</code>. A stdio server does not inherit your <code>.env</code>; this was a real bug found in Docker.</li>
+</ul>
+<div class="say">I put flight search behind an MCP server so the tool is reusable: Claude Desktop or any other MCP client could call the same search. The agent's other actions, like booking and payment, are direct service calls, because they need the user's database session and the approval gate.</div>
+<div class="warn">Know the trade-off: the client opens a <b>new subprocess per search</b> (<code>async with Client(...)</code>). That's simple, but it costs process start-up on every call. In production I'd keep one long-lived session, or use the Streamable HTTP transport.</div>
+
+<!-- 10 -->
+<h2 id="m-services">10. <code>services/</code> + <code>db/</code>: rules and data</h2>
+<p><code>BookingService.book_flight</code>, step by step:</p>
+<ol>
+<li>Passengers must exist, <b>belong to this user</b>, and be complete (Duffel needs title, gender, date of birth, email, phone).</li>
+<li><b>Re-fetch the offer</b>, so we book the current price.</li>
+<li>Place the hold with the provider.</li>
+<li>Save the flight and booking, then <code>commit()</code> as <b>one transaction</b>.</li>
+</ol>
+<h3>Concept: who commits?</h3>
+<p><b>Services commit; repositories only flush.</b> This is the unit-of-work pattern: one service method equals one transaction, so a booking is never half-saved.</p>
+<h3>Tables</h3>
+<table>
+<tr><th>Table</th><th>Why it exists</th></tr>
+<tr><td>users, passengers</td><td>owner checks; saved travellers</td></tr>
+<tr><td>flights, flight_stops</td><td>snapshot of the flight that was booked</td></tr>
+<tr><td>bookings, booking_passengers</td><td>status: hold → awaiting_payment → confirmed / cancelled / expired</td></tr>
+<tr><td>payments</td><td>status state machine (next section)</td></tr>
+<tr><td>payment_events</td><td><b>unique (provider, event_id)</b>: deduplicates webhooks</td></tr>
+<tr><td>chat_sessions</td><td>JSONB projection of the UI state, used after restarts</td></tr>
+</table>
+<p>Stack: SQLAlchemy 2 <b>async</b> + asyncpg, Alembic migrations. The LangGraph checkpointer uses <b>psycopg</b> (a different driver) on the same database, hence <code>libpq_url()</code>.</p>
+
+<!-- 11 -->
+<h2 id="m-pay">11. Payments + webhook: safe to retry</h2>
+<div class="diagram">
+<svg viewBox="0 0 900 200" role="img" aria-label="Payment state machine">
+  <defs><marker id="a6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="#8a919c"/></marker></defs>
+  <rect class="b b5" x="20" y="80" width="120" height="44" rx="22"/><text class="t" x="50" y="107">CREATED</text>
+  <rect class="b b5" x="230" y="80" width="120" height="44" rx="22"/><text class="t" x="260" y="107">PENDING</text>
+  <rect class="b b2" x="720" y="80" width="150" height="44" rx="22"/><text class="t" x="756" y="107">PAID (final)</text>
+  <rect class="b b3" x="460" y="10" width="120" height="40" rx="20"/><text class="t" x="492" y="35">FAILED</text>
+  <rect class="b b3" x="460" y="150" width="120" height="40" rx="20"/><text class="t" x="488" y="175">EXPIRED</text>
+  <path class="ln" d="M140 102H230" marker-end="url(#a6)"/>
+  <path class="la" d="M350 102H720" marker-end="url(#a6)"/>
+  <path class="ln" d="M350 92 L460 35" marker-end="url(#a6)"/><path class="ln" d="M350 112 L460 168" marker-end="url(#a6)"/>
+  <path class="la" d="M580 30 L720 92" marker-end="url(#a6)"/><path class="la" d="M580 170 L720 112" marker-end="url(#a6)"/>
+  <text class="m" x="600" y="50">late success still wins</text>
+  <path class="ln" d="M80 80 C80 0 640 -10 790 78" marker-end="url(#a6)" style="stroke-dasharray:3 4"/>
+  <text class="m" x="180" y="20">CREATED can also go straight to PAID / FAILED / EXPIRED</text>
+</svg>
+</div>
+<pre><code>ALLOWED = {
+    CREATED: {PENDING, PAID, FAILED, EXPIRED},
+    PENDING: {PAID, FAILED, EXPIRED},
+    FAILED:  {PAID},          # a late success still wins
+    EXPIRED: {PAID},
+    PAID:    set(),           # terminal
+}
+# _transition: same status or illegal move → change nothing</code></pre>
+<h3>The webhook, in order</h3>
+<ol>
+<li>Read the <b>raw body</b>, then verify the <b>HMAC signature</b> (Cashfree signs <code>timestamp + body</code> with a shared secret). Bad signature → 401.</li>
+<li>Parse the JSON and find the order id, which is our booking UUID.</li>
+<li><b>Deduplicate</b> on the unique <code>(provider, event_id)</code>. A duplicate is ignored.</li>
+<li>Apply it through <code>PaymentService.apply_provider_status</code>, <b>the same path</b> the manual <code>/sync</code> button uses.</li>
+<li>Return <b>200 quickly</b>, even for duplicates, because Cashfree retries anything else.</li>
+</ol>
+<div class="say">Webhooks are delivered at-least-once and can arrive out of order. So I made processing idempotent with a unique constraint on the provider's event id, and made order irrelevant with a state machine: once paid, a late "failed" event changes nothing.</div>
+<div class="warn">Honest status: in the live sandbox, <code>complete_payment</code> ends at <b>pending</b>, because there's no checkout frontend to actually pay. The paid → confirmed path is verified with a mock payment provider in tests.</div>
+
+<!-- 12 -->
+<h2 id="m-api">12. <code>api/</code>: routes, runner, SSE</h2>
+<h3>Endpoints</h3>
+<table>
+<tr><th>Route</th><th>Returns</th><th>Notes</th></tr>
+<tr><td>POST /sessions</td><td>201</td><td>new conversation (thread_id)</td></tr>
+<tr><td>GET /sessions/{id}/stream</td><td>SSE</td><td>snapshot, then live events</td></tr>
+<tr><td>POST /sessions/{id}/messages</td><td>202</td><td>starts a turn; 409 if one is running</td></tr>
+<tr><td>POST …/approvals/{approval_id}</td><td>202</td><td>approve / reject; idempotent</td></tr>
+<tr><td>POST …/passenger-requests/{id}</td><td>202</td><td>answers the passengers interrupt</td></tr>
+<tr><td>POST …/flight-selection</td><td>202</td><td>user taps a flight card</td></tr>
+<tr><td>POST …/payments, …/sync, …/booking/cancel</td><td>202</td><td>button actions, outside the chat</td></tr>
+<tr><td>POST /webhooks/cashfree</td><td>200</td><td>server to server</td></tr>
+<tr><td>GET /health</td><td>200 / 503</td><td>503 "degraded" if the DB is down</td></tr>
+</table>
+<h3>The runner: everything is a "turn"</h3>
+<pre><code>turn.started → status busy → (steps, messages, domain events) → turn.completed → idle | awaiting</code></pre>
+<p>The <code>turn()</code> context manager guarantees that <code>turn.completed</code> is <b>always</b> sent, even when something fails. Exceptions become an <code>error</code> event, never a hung spinner.</p>
+<h3>Concept: SSE stream with reconnect</h3>
+<ol>
+<li><b>Subscribe first</b>, then take a snapshot. If the order were reversed, an event published between the two steps would be lost.</li>
+<li>Send <code>session.snapshot</code> with id = the last event id, so the browser redraws everything from it.</li>
+<li>Stream live events, <b>skipping ids ≤ snapshot id</b>, because those are already in the snapshot.</li>
+<li>Send a heartbeat <code>: ping</code> every N seconds so proxies don't close an idle connection.</li>
+</ol>
+<p>Event ids increase per thread and are never reused. After a restart, <code>restore_counter</code> continues numbering from the saved session.</p>
+<div class="say">I chose SSE over WebSockets because the traffic is one-directional, server to browser. User actions are plain POSTs. SSE works over normal HTTP, reconnects automatically, and supports <code>Last-Event-ID</code>.</div>
+<h3>Concept: ContextVar for progress</h3>
+<p><code>progress.py</code> stores the current turn in a <code>ContextVar</code>. Graph nodes call <code>progress.start_step(...)</code> without passing the turn around, and each asyncio task sees its own value, so two conversations never mix events.</p>
+<div class="ios">ContextVar ≈ Swift's <code>@TaskLocal</code>: a value scoped to the current task and inherited by its child tasks.</div>
+<div class="warn">Keep a reference to every <code>asyncio.create_task</code> task. The event loop holds only a weak reference, so an unreferenced task can be garbage-collected mid-run.</div>
+
+<!-- 13 -->
+<h2 id="m-persist">13. Surviving a restart</h2>
+<table>
+<tr><th>What</th><th>Where it lives</th><th>Restored how</th></tr>
+<tr><td>Agent memory (messages, booking, the paused interrupt)</td><td><code>AsyncPostgresSaver</code> checkpoints, keyed by thread_id</td><td>automatically on the next <code>ainvoke</code> with the same thread_id</td></tr>
+<tr><td>UI state (cards, pending approval, last event id)</td><td><code>chat_sessions</code> JSONB, saved by <code>save_soon</code> after each turn</td><td>loaded on reconnect; the event counter is restored</td></tr>
+<tr><td>Bookings / payments</td><td>normal tables</td><td>source of truth</td></tr>
+</table>
+<div class="say">An approval can wait while the server restarts. The interrupt is checkpointed in Postgres, so when the user clicks approve after a redeploy, the graph resumes exactly where it paused.</div>
+<p>The checkpointer is created in FastAPI's <b>lifespan</b> (<code>postgres_checkpointer</code>). Tests and the demo runner use the <code>InMemorySaver</code>.</p>
+
+<!-- 14 -->
+<h2 id="m-auth">14. Auth, logging, errors</h2>
+<ul>
+<li><b>Auth</b>: Firebase ID tokens verified <b>without firebase-admin</b>. The service fetches Google's public certificates, checks the RS256 signature, the audience (our project), the issuer and the expiry, then maps <code>firebase_uid</code> to a user. Someone else's thread → <b>404</b>, not 403, so we don't reveal that it exists. SSE sends the token as <code>?access_token=</code>, because the browser's EventSource can't set headers.</li>
+<li><b>Logging</b>: JSON lines with <code>request_id</code>, <code>thread_id</code> and <code>turn_id</code>; for each LLM call, the duration plus input and output tokens; for each tool, the duration and ok/error; <code>redact()</code> for secrets.</li>
+<li><b>Errors</b>: one <code>AppError</code> hierarchy (<code>OfferUnavailable</code>, <code>UpstreamRateLimited</code>, ...). <code>api/errors.py</code> maps each one to an HTTP code and a stable error code, with <code>retryable</code> where it applies.</li>
+</ul>
+
+<!-- 15 -->
+<h2 id="m-tests">15. Tests: 62 integration tests</h2>
+<ul>
+<li>A <b>real uvicorn server</b> and a <b>real Postgres</b> (<code>flight_booking_test</code>). Fakes only at the edges: LLM, Duffel and Cashfree (<code>tests/fakes.py</code>).</li>
+<li>Files cover: auth, booking, passengers, payments, persistence (restart), search and approval, the SSE stream, and units.</li>
+<li>Why not mock the database? The bugs that matter are in transactions, unique constraints and the checkpointer, and a mock hides exactly those.</li>
+<li>The fake LLM is <b>scripted</b>: it returns pre-set tool calls, so the graph's routing is tested deterministically.</li>
+</ul>
+<pre><code>uv run pytest -q</code></pre>
+
+<!-- 16 -->
+<h2 id="concepts">16. Concept cheat sheet</h2>
+<table>
+<tr><th>Concept</th><th>One line</th><th>Where</th></tr>
+<tr><td>Tool / function calling</td><td>The model returns a structured call with JSON arguments; your code runs it</td><td>llm.py TOOLS</td></tr>
+<tr><td>Agent loop</td><td>llm → tools → llm, until there's no tool call</td><td>graph.py</td></tr>
+<tr><td>Reducer</td><td>How a node's update merges into state (append vs replace)</td><td>state.py</td></tr>
+<tr><td>Checkpointer</td><td>Saves the state after every step, per thread_id</td><td>graph.py</td></tr>
+<tr><td>interrupt / Command(resume)</td><td>Pause for a human; resume re-runs the node</td><td>approval.py</td></tr>
+<tr><td>Human-in-the-loop</td><td>Irreversible actions need a human yes</td><td>approval node</td></tr>
+<tr><td>MCP</td><td>A standard protocol for tools; here over stdio JSON-RPC</td><td>mcp/</td></tr>
+<tr><td>Idempotency</td><td>Repeating a request has the same effect as doing it once</td><td>approvals, webhook</td></tr>
+<tr><td>State machine</td><td>Only allowed transitions; terminal states</td><td>services/payment.py</td></tr>
+<tr><td>HMAC</td><td>A signature with a shared secret proves the sender and that the body is intact</td><td>cashfree provider</td></tr>
+<tr><td>202 + SSE</td><td>Accept now, stream progress later</td><td>routes, event_bus</td></tr>
+<tr><td>Unit of work</td><td>Service = transaction; repositories only flush</td><td>services/</td></tr>
+<tr><td>Semaphore / rate limiter</td><td>Concurrency cap / start-rate cap</td><td>llm.py, rate_limiter.py</td></tr>
+<tr><td>ContextVar</td><td>Per-task "global"</td><td>progress.py</td></tr>
+<tr><td>Pydantic validation</td><td>Validate LLM and vendor data at the boundary</td><td>models.py, handlers</td></tr>
+</table>
+
+<!-- 17 -->
+<h2 id="stories">17. Real bug stories (use these for "tell me about a hard bug")</h2>
+<details><summary>1. Tool events never reached the browser</summary>
+<p><b>S:</b> Tool steps were missing from the UI. <b>T:</b> Find why the node didn't know its conversation. <b>A:</b> I found that LangGraph silently drops input keys that aren't in the state schema, so <code>_thread_id</code> never arrived. I changed the nodes to read <code>config["configurable"]["thread_id"]</code> through a <code>RunnableConfig</code> parameter. <b>R:</b> Events flowed, and I learned to treat the state schema as a contract.</p></details>
+<details><summary>2. Duplicate approval cards</summary>
+<p>I published <code>approval.required</code> inside the node. On resume, LangGraph re-runs the node from the top, so the event fired twice. <b>Fix:</b> publish it from the runner when it sees <code>__interrupt__</code>, and derive <code>approval_id</code> from the tool call id so it's the same on both runs.</p></details>
+<details><summary>3. Booking state wiped every turn</summary>
+<p>Each new message's input contained <code>booking: None</code>, which overwrote the checkpointed booking. <b>Fix:</b> send only <code>messages</code> and <code>user_id</code>. Input is an <i>update</i>, not a full replacement of the state.</p></details>
+<details><summary>4. The airline refused offers that looked valid</summary>
+<p>In Duffel test mode, real carriers returned 422 <code>offer_no_longer_available</code> on hold, even though GET on the offer was 200. <b>Fix:</b> map it to <code>OfferUnavailable</code>, remember the fare in <code>unavailable_offers</code>, return <code>retryable: false</code> to the model, and have the approval gate refuse that fare from then on. The model then searches again on its own.</p></details>
+<details><summary>5. MCP worked locally, failed in Docker</summary>
+<p>The stdio MCP server is a subprocess that only gets the environment you pass it. Locally the token happened to be found; in Docker there's no <code>.env</code>. <b>Fix:</b> pass <code>FLIGHT_VENDOR_TOKEN</code> explicitly in <code>StdioServerParameters(env=...)</code>.</p></details>
+<details><summary>6. ~15k input tokens per LLM call (performance / cost)</summary>
+<p>Token logging showed each call sending ~15k tokens, because the 50 flight offers from the search stayed in the message history. It's a measured finding you can discuss: the fix is to send the model a compact summary (top N fares, short ids) and keep the full offers in state.</p></details>
+
+<!-- 18 -->
+<h2 id="limits">18. Honest limitations (say these before they're found)</h2>
+<table>
+<tr><th>Limitation</th><th>Why it's OK now</th><th>Production fix</th></tr>
+<tr><td>Event bus and turn lock live in process memory</td><td>single instance</td><td>Redis pub/sub or Postgres LISTEN/NOTIFY; a distributed lock</td></tr>
+<tr><td>New MCP subprocess for every search</td><td>simple and isolated</td><td>a long-lived session or HTTP transport</td></tr>
+<tr><td>No retry on the LLM call</td><td>fails clearly, with a polite reply</td><td>backoff with jitter for 429/503 only</td></tr>
+<tr><td>~15k tokens per call</td><td>works</td><td>summarise search results before they go into history</td></tr>
+<tr><td>Live payment ends "pending"</td><td>no checkout UI in the sandbox</td><td>Cashfree checkout page; paid path is tested with a mock</td></tr>
+<tr><td>No agent eval set yet</td><td>integration tests cover behaviour</td><td>trajectory evals, like the Grounded Answer Engine's harness</td></tr>
+</table>
+<div class="say">Raising limitations yourself reads as senior. "This is single-instance because the event bus is in memory; to scale out, I'd move pub/sub to Redis."</div>
+
+<!-- 19 -->
+<h2 id="qa">19. Questions + answers</h2>
+<details><summary>Why LangGraph and not a plain while-loop?</summary><p>Three things I'd otherwise build myself: <b>checkpointing</b> per thread, <b>interrupts</b> that pause and resume, and explicit <b>conditional routing</b> that makes the safety rule visible in the graph. The loop itself is simple; pausing for a human across a server restart is not.</p></details>
+<details><summary>How do you stop the model from booking without permission?</summary><p>Structurally: the router sends every <code>book_flight</code> call to the approval node, which calls <code>interrupt()</code>. The tool only runs after a human's <code>Command(resume="approved")</code>, the server checks the approval id, and the approval expires with the fare. The prompt also says "don't ask for confirmation yourself", but safety doesn't depend on the prompt.</p></details>
+<details><summary>What happens if the user double-clicks Approve?</summary><p>The first click resolves it and starts the turn. The second one finds the same decision in <code>session.resolved</code> and returns 202 without running anything. If it were a different decision, it would get 409 <code>approval_already_resolved</code>.</p></details>
+<details><summary>What if the server crashes while waiting for approval?</summary><p>The interrupt is in the Postgres checkpointer and the UI state is in <code>chat_sessions</code>. After a restart, the browser reconnects, gets the snapshot including the pending approval, and approving resumes the graph.</p></details>
+<details><summary>How do you handle webhooks arriving twice or out of order?</summary><p>Twice: a unique <code>(provider, event_id)</code> constraint, and the duplicate is ignored. Out of order: the state machine, where PAID is terminal and an illegal move changes nothing. Both the webhook and <code>/sync</code> go through one function.</p></details>
+<details><summary>How do you validate LLM output?</summary><p>Tool arguments go through Pydantic's <code>model_validate_json</code>. A failure becomes a tool error message that the model sees and corrects. Schemas come from the same Pydantic models, so the prompt and the validation can't drift apart.</p></details>
+<details><summary>Why SSE instead of WebSockets?</summary><p>Traffic is one-way, server to client; actions are POSTs. SSE is plain HTTP, reconnects by itself, and has <code>Last-Event-ID</code>. I add a snapshot on connect so a reconnecting client is never out of sync.</p></details>
+<details><summary>How would you scale it to many servers?</summary><p>The checkpointer and database already work across instances. What needs to move: the event bus to Redis pub/sub, the turn lock to Redis or a Postgres advisory lock, and the session projection read from the database. The MCP client would use a pooled long-lived session.</p></details>
+<details><summary>How do you know it works? How would you evaluate the agent?</summary><p>Today: 62 integration tests with a scripted fake LLM check the routing, approvals, payments and restarts. Next: a trajectory eval set (expected tool order, no redundant calls, never book without approval), like the 40-question harness I built for my RAG project.</p></details>
+<details><summary>What does it cost per conversation?</summary><p>I log input and output tokens per call. A finding: ~15k input tokens per call, because the flight offers stay in history. Summarising them is the biggest saving.</p></details>
+
+<!-- 20 -->
+<h2 id="alignerr">20. Alignerr questions → your real answers</h2>
+<div class="warn">Don't use the sample stories from the prep guide (Redis, Celery, a tracemalloc memory leak, a dead-letter queue). You haven't built those, and the AI interviewer asks follow-ups.</div>
+<table>
+<tr><th>Their question</th><th>Your story</th></tr>
+<tr><td>Walk me through a production Python backend</td><td>Sections 1–3: FastAPI → graph → handlers → services → Postgres; 202 + SSE; approval gate.</td></tr>
+<tr><td>A performance bottleneck</td><td>(a) RAG engine: measured the LLM call at 95% of latency, mostly time to first token, so I didn't tune retrieval. (b) This project: ~15k tokens per call from offers in history.</td></tr>
+<tr><td>Rate limits and transient errors</td><td>Here: semaphore(3) + rate limiter(5/s) + polite fallbacks. RAG gateway: retry only 429/503, exponential backoff + jitter, honour Retry-After, no retry on timeout because of the timeout ladder (60 &lt; 75 &lt; 90 s).</td></tr>
+<tr><td>Validating LLM JSON</td><td>Section 8: Pydantic <code>model_validate_json</code> → typed error → the model self-corrects; vendor responses validated too.</td></tr>
+<tr><td>Testing async code</td><td>Section 15: real server + real Postgres, fakes only at the edges.</td></tr>
+</table>
+
+<!-- 21 -->
+<h2 id="quiz">21. Self-quiz (answer out loud, then open)</h2>
+<details><summary>Q1. Why does anything before interrupt() run twice?</summary><p>On resume, LangGraph re-runs the whole node from the start; this time <code>interrupt()</code> returns the value instead of pausing.</p></details>
+<details><summary>Q2. Semaphore(3) vs RateLimiter(5): what does each limit?</summary><p>The semaphore limits calls in flight at once; the rate limiter limits how many calls start per second.</p></details>
+<details><summary>Q3. Why is the Cashfree order id our UUID and not Duffel's id?</summary><p>The webhook must find <i>our</i> booking directly, and our id is stable and under our control.</p></details>
+<details><summary>Q4. Why subscribe before taking the snapshot?</summary><p>So an event published between the two steps is in the queue; anything already in the snapshot is skipped by id.</p></details>
+<details><summary>Q5. Why does a FAILED payment allow PAID?</summary><p>The provider can report a late success; the money did move, so success wins.</p></details>
+<details><summary>Q6. Why return 404 for someone else's thread?</summary><p>403 would confirm that the thread exists, which leaks information.</p></details>
+<details><summary>Q7. What breaks if you run two copies of the API?</summary><p>The in-memory event bus and turn lock: a browser on server A won't see events from a turn running on server B.</p></details>
+<details><summary>Q8. Why do services commit and not repositories?</summary><p>One business action is one transaction; if repositories committed, a booking could be half-saved.</p></details>
+
+</main>
+</div>
+</body>
+</html>

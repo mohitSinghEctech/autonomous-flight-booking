@@ -3,6 +3,32 @@ from enum import Enum
 
 from pydantic import BaseModel, Field, field_validator
 
+"""
+enums: Cabin, BookingStatus, BookingLifeycle, PaymentStatus
+
+__Search Flights
+SearchFlights(Cabin)[Request]
+Flight(Airport, Cabin, Stop)[Response]
+Stop(Airport)
+Airport
+
+__Passengers
+Passenger
+
+__Booking
+BookFlight[Request]
+BookingResult(BookingStatus)[response]
+
+__App level booking
+Booking(BookingLifecycle)[AppLevel]
+
+__Payment Response
+PaymentResult(PaymentStatus)
+
+
+"""
+
+
 
 #  Search Request Model
 class Cabin(str, Enum):

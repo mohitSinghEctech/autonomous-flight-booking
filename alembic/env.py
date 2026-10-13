@@ -13,7 +13,9 @@ config = context.config
 # DATABASE_URL (if set) wins over alembic.ini, so tests can migrate their own database.
 import os  # noqa: E402
 if os.getenv("DATABASE_URL"):
-    config.set_main_option("sqlalchemy.url", os.environ["DATABASE_URL"])
+    from app.db.session import asyncpg_url  # noqa: E402
+    # "%" must be doubled: alembic's config file syntax treats it as interpolation
+    config.set_main_option("sqlalchemy.url", asyncpg_url(os.environ["DATABASE_URL"]).replace("%", "%%"))
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

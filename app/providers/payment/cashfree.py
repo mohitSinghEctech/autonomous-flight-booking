@@ -62,7 +62,7 @@ class CashfreePaymentProvider(PaymentProvider):
         payload = {
             "order_id": booking_id,
             "order_amount": amount,
-            "order_currency": currency,
+            "order_currency": "INR",# currency,
             "customer_details": {
                 "customer_id": booking_id[:50],
                 "customer_phone": "9999999999",

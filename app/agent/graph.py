@@ -11,6 +11,7 @@ from app.agent.llm import safe_call_llm
 from app.agent.passengers import TOOL_NAME as PASSENGER_TOOL, passengers_node
 from app.agent.state import AgentState
 from app.agent.tools import execute_tools
+from app.db.session import libpq_url
 
 
 def route_after_llm(state: AgentState):
@@ -141,7 +142,7 @@ async def postgres_checkpointer(database_url: str):
     global graph
 
     # LangGraph's saver speaks psycopg, not asyncpg: same database, plain URL
-    conninfo = database_url.replace("postgresql+asyncpg://", "postgresql://")
+    conninfo = libpq_url(database_url)
 
     async with AsyncConnectionPool(
         conninfo,
@@ -158,3 +159,12 @@ async def postgres_checkpointer(database_url: str):
             yield
         finally:
             graph = previous
+
+
+numbers = [1, 2, 3, 4, 5]
+
+squares = []
+
+for num in numbers:
+    squares.append(num^2)
+print(squares)
