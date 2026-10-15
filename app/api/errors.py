@@ -60,7 +60,7 @@ def to_error_code(exc: Exception) -> tuple[str, str]:
     if isinstance(exc, (app_errors.UpstreamTimeout, app_errors.UpstreamUnavailable, httpx.TimeoutException, httpx.ConnectError)):
         return "provider_unavailable", "A travel or payment provider is not responding. Please try again."
     if isinstance(exc, app_errors.FlightNotFound):
-        return "flight_not_found", str(exc)
+        return "flight_not_found", "booking_not_found", "no_active_booking", "booking_not_payable", "payment_not_found", str(exc)
     if isinstance(exc, app_errors.BookingNotPayable):
         return "booking_not_payable", str(exc)
     if isinstance(exc, app_errors.NoActiveBooking):
