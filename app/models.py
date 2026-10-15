@@ -48,6 +48,7 @@ class BookingLifecycle(str, Enum):
     CONFIRMED = "confirmed"
     CANCELLED = "cancelled"
     EXPIRED = "expired"
+    TICKETING_FAILED = "ticketing_failed"
     
 def booking_lifecycle_from_status(status: BookingStatus) -> BookingLifecycle:
     if status == BookingStatus.HOLD:

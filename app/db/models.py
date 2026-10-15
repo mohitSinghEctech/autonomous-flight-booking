@@ -25,6 +25,7 @@ class BookingStatus(str, Enum):
     CONFIRMED = "confirmed"
     CANCELLED = "cancelled"
     EXPIRED = "expired"
+    TICKETING_FAILED = "ticketing_failed"
 
 
 class PaymentStatus(str, Enum):

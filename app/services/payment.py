@@ -1,6 +1,8 @@
 import secrets
 import uuid
 from decimal import Decimal
+import httpx
+import logging
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +14,9 @@ from app.db.repositories.payments import PaymentRepository
 from app.models import PaymentStatus as ProviderPaymentStatus
 from app.providers import all_providers
 from app.providers.payment.base import PaymentProvider
+from app.providers.flights.base import FlightProvider
+
+logger = logging.getLogger(__name__)
 
 
 PAYMENT_PROVIDER_NAME = "cashfree"
@@ -44,10 +49,12 @@ class PaymentService:
         self,
         session: AsyncSession,
         payment_provider: PaymentProvider | None = None,
+        flight_provider: FlightProvider | None = None,
     ):
         self.session = session
         # looked up at call time, so tests can swap all_providers.payment_provider
         self.payment_provider = payment_provider or all_providers.payment_provider
+        self.flight_provider = flight_provider or all_providers.flight_provider
 
         self.payment_repository = PaymentRepository(session)
         self.booking_repository = BookingRepository(session)
@@ -196,6 +203,21 @@ class PaymentService:
         await self.session.commit()
 
         return payment, booking, changed, False
+    
+    async def _issue_ticket(self, booking: Booking) -> None:
+        """Customer paid us -> now pay the airline. Confirm only if that works"""
+        try:
+            await self.flight_provider.pay_order(
+                booking.provider_booking_id,
+                booking.total_amount,
+                booking.currency
+            )
+        except (AppError, httpx.HTTPError):
+            logger.exception("airline payment failed for booking %s", booking.id)
+            await self.booking_repository.update_status(booking.id, BookingStatus.TICKETING_FAILED)
+            return
+
+        await self.booking_repository.update_status(booking.id, BookingStatus.CONFIRMED)
 
     async def _transition(
         self,
@@ -212,7 +234,7 @@ class PaymentService:
         await self.payment_repository.update_status(payment.id, new_status)
 
         if new_status == PaymentStatus.PAID:
-            await self.booking_repository.update_status(booking.id, BookingStatus.CONFIRMED)
+            await self._issue_ticket(booking)
 
         return True
 

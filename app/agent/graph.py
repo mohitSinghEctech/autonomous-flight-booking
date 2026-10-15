@@ -159,12 +159,3 @@ async def postgres_checkpointer(database_url: str):
             yield
         finally:
             graph = previous
-
-
-numbers = [1, 2, 3, 4, 5]
-
-squares = []
-
-for num in numbers:
-    squares.append(num^2)
-print(squares)
