@@ -12,6 +12,7 @@ from cryptography.x509.oid import NameOID
 from sqlalchemy import select
 
 from app.api import auth
+from app.core.settings import settings
 from app.core.logging import redact
 from app.db.models import User
 from app.db.session import SessionLocal
@@ -47,9 +48,9 @@ def token(uid: str, *, key=KEY, kid="k1", aud=PROJECT, expires_in=3600, name="Mi
 
 @pytest.fixture
 def firebase(monkeypatch):
-    monkeypatch.setenv("AUTH_MODE", "firebase")
-    monkeypatch.setenv("FIREBASE_PROJECT_ID", PROJECT)
-    monkeypatch.delenv("FIREBASE_AUTH_EMULATOR_HOST", raising=False)
+    monkeypatch.setattr(settings, "auth_mode", "firebase")
+    monkeypatch.setattr(settings, "firebase_project_id", PROJECT)
+    monkeypatch.setattr(settings, "firebase_auth_emulator_host", None)
 
     async def certs():
         return {"k1": CERT}
@@ -117,7 +118,7 @@ async def test_stream_accepts_the_token_in_the_query(api, server, firebase):
 
 
 async def test_emulator_tokens_are_unsigned_but_still_checked(api, firebase, monkeypatch):
-    monkeypatch.setenv("FIREBASE_AUTH_EMULATOR_HOST", "localhost:9099")
+    monkeypatch.setattr(settings, "firebase_auth_emulator_host", "localhost:9099")
     now = int(time.time())
     claims = {"iss": f"https://securetoken.google.com/{PROJECT}", "aud": PROJECT, "sub": uuid.uuid4().hex,
               "iat": now, "exp": now + 600}

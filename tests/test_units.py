@@ -5,6 +5,7 @@ import hmac
 
 from app.api.events import SSEEvent
 from app.api.sessions import apply_event, empty_state
+from app.core.settings import settings
 from app.models import PaymentStatus
 from app.providers.flights.duffel import parse_iso_duration
 from app.providers.payment.cashfree import CashfreePaymentProvider, parse_webhook, to_payment_status
@@ -32,7 +33,7 @@ def test_cashfree_status_mapping():
 
 
 def test_cashfree_webhook_signature(monkeypatch):
-    monkeypatch.setenv("CASHFREE_API_KEY", "secret")
+    monkeypatch.setattr(settings, "cashfree_api_key", "secret")
     provider = CashfreePaymentProvider()
     raw, ts = b'{"a":1}', "1700000000"
     good = base64.b64encode(hmac.new(b"secret", ts.encode() + raw, hashlib.sha256).digest()).decode()

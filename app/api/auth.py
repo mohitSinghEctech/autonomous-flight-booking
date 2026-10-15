@@ -19,7 +19,6 @@ With FIREBASE_AUTH_EMULATOR_HOST set (local emulator only) tokens are unsigned,
 so the signature check is skipped and everything else is still checked.
 """
 import logging
-import os
 import re
 import time
 
@@ -29,6 +28,7 @@ from cryptography.x509 import load_pem_x509_certificate
 from fastapi import Header, Query
 
 from app.api.errors import ApiError
+from app.core.settings import settings
 from app.db.repositories.users import UserRepository
 from app.db.session import SessionLocal
 
@@ -36,19 +36,6 @@ logger = logging.getLogger(__name__)
 
 CERTS_URL = "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com"
 
-DEMO_USER_ID = os.getenv("DEMO_USER_ID", "eeb6ff6a-c66f-4874-a5aa-7c773962e14e")
-
-
-def auth_mode() -> str:
-    return os.getenv("AUTH_MODE", "firebase")
-
-
-def project_id() -> str:
-    return os.getenv("FIREBASE_PROJECT_ID", "mks-agent-console")
-
-
-def emulator() -> bool:
-    return bool(os.getenv("FIREBASE_AUTH_EMULATOR_HOST"))
 
 
 # ---- Google's signing certs (rotate; cached for as long as Google says) --------------
@@ -76,15 +63,15 @@ async def signing_certs() -> dict[str, str]:
 async def verify_token(token: str) -> dict:
     """Claims of a valid Firebase ID token, or ApiError 401."""
 
-    issuer = f"https://securetoken.google.com/{project_id()}"
+    issuer = f"https://securetoken.google.com/{settings.firebase_project_id}"
     required = {"require": ["exp", "iat", "sub"]}
 
     try:
-        if emulator():
+        if settings.firebase_auth_emulator_host:
             claims = jwt.decode(
                 token,
                 options={"verify_signature": False, "verify_exp": True, "verify_aud": True, "verify_iss": True, **required},
-                audience=project_id(),
+                audience=settings.firebase_project_id,
                 issuer=issuer,
             )
         else:
@@ -97,7 +84,7 @@ async def verify_token(token: str) -> dict:
                 token,
                 load_pem_x509_certificate(cert.encode()).public_key(),
                 algorithms=["RS256"],
-                audience=project_id(),
+                audience=settings.firebase_project_id,
                 issuer=issuer,
                 leeway=10,
                 options=required,
@@ -131,8 +118,8 @@ async def current_user_id(
 ) -> str:
     """FastAPI dependency: our users.id (as str) for the caller."""
 
-    if auth_mode() == "demo":
-        return DEMO_USER_ID
+    if settings.auth_mode == "demo":
+        return settings.demo_user_id
 
     token = None
     if authorization and authorization.lower().startswith("bearer "):

@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import SessionLocal
 
-async def db_get_session() -> AsyncGenerator[AsyncSession, None]:
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    """One DB session per request, for routes that answer directly (not background turns)."""
     async with SessionLocal() as session:
         yield session

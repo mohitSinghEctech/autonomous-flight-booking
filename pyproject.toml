@@ -18,6 +18,7 @@ dependencies = [
     "phonenumberslite>=9.0.40",
     "psycopg[binary,pool]>=3.3.6",
     "pydantic>=2.13.5",
+    "pydantic-settings>=2.16.0",
     "pyjwt[crypto]>=2.15.1",
     "python-dotenv>=1.2.3",
     "sqlalchemy[asyncio]>=2.1.3",

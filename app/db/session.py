@@ -1,8 +1,9 @@
-import os
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
+
+from app.core.settings import settings
 
 
 def asyncpg_url(url: str) -> str:
@@ -34,17 +35,14 @@ def libpq_url(url: str) -> str:
 
 
 # One place for the URL. Tests point DATABASE_URL at flight_booking_test.
-DATABASE_URL = asyncpg_url(os.getenv(
-    "DATABASE_URL",
-    "postgresql+asyncpg://flight_user:flight_password@localhost:5432/flight_booking",
-))
+DATABASE_URL = asyncpg_url(settings.database_url)
 
 # Tests run each case on a fresh event loop; pooled asyncpg connections can't
 # cross loops, so they ask for no pooling. pool_pre_ping: hosted Postgres
 # (Neon) closes idle connections; check before reuse instead of failing a turn.
 engine = create_async_engine(
     DATABASE_URL,
-    **({"poolclass": NullPool} if os.getenv("DB_NULL_POOL") else {"pool_pre_ping": True}),
+    **({"poolclass": NullPool} if settings.db_null_pool else {"pool_pre_ping": True}),
 )
 
 SessionLocal = async_sessionmaker(

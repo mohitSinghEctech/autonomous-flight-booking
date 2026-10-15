@@ -4,9 +4,6 @@ class AppError(Exception):
 class InvalidToolArguments(AppError):
     pass
 
-class ToolNotFound(AppError):
-    pass
-
 class FlightNotFound(AppError):
     pass
 

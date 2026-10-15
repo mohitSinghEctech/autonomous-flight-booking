@@ -1,5 +1,4 @@
 import logging
-import os
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -8,12 +7,12 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.agent import graph as agent_graph
-from app.api import auth
 from app.api.errors import install_error_handlers
 from app.api.events import CONTRACT_VERSION
 from app.api.routes import router, webhooks
 from app.api.sessions import session_store
 from app.core.logging import log_fields, request_id_var, setup_logging
+from app.core.settings import settings
 from app.db.session import DATABASE_URL
 
 
@@ -26,7 +25,8 @@ DEFAULT_ORIGINS = [
     "http://127.0.0.1:5055",
 ]
 
-REQUIRED_ENV = ["LLM_API_KEY", "LLM_MODEL", "FLIGHT_VENDOR_TOKEN", "CASHFREE_APP_ID", "CASHFREE_API_KEY"]
+# Settings the API cannot run without (environment variable names)
+REQUIRED = ["llm_api_key", "llm_model", "flight_vendor_token", "cashfree_app_id", "cashfree_api_key"]
 
 logger = logging.getLogger("app")
 access = logging.getLogger("app.http")
@@ -35,17 +35,14 @@ access = logging.getLogger("app.http")
 def check_config() -> None:
     """Fail at startup, with a clear message, instead of on the first user request."""
 
-    missing = [name for name in REQUIRED_ENV if not os.getenv(name)]
+    missing = [name.upper() for name in REQUIRED if not getattr(settings, name)]
     if missing:
         raise RuntimeError(f"Missing required environment variables: {', '.join(missing)}")
 
-    mode = auth.auth_mode()
-    if mode not in ("firebase", "demo"):
-        raise RuntimeError(f"AUTH_MODE must be 'firebase' or 'demo', not {mode!r}")
-
-    if mode == "demo":
+    # AUTH_MODE is already checked by Settings (only "firebase" or "demo" are accepted)
+    if settings.auth_mode == "demo":
         logger.warning("AUTH_MODE=demo: no sign-in required, every caller is the demo user. Never use this in production.")
-    if auth.emulator():
+    if settings.firebase_auth_emulator_host:
         logger.warning("FIREBASE_AUTH_EMULATOR_HOST is set: token signatures are NOT checked. Local development only.")
 
 
@@ -54,7 +51,7 @@ async def lifespan(app: FastAPI):
     check_config()
 
     async with agent_graph.postgres_checkpointer(DATABASE_URL):
-        log_fields(logger, "api started", contract_version=CONTRACT_VERSION, auth_mode=auth.auth_mode())
+        log_fields(logger, "api started", contract_version=CONTRACT_VERSION, auth_mode=settings.auth_mode)
         yield
         await session_store.flush()
 
@@ -62,7 +59,7 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
-    setup_logging(os.getenv("LOG_LEVEL", "INFO"))
+    setup_logging(settings.log_level)
 
     app = FastAPI(
         title="ATLAS Flight Booking API",
@@ -70,11 +67,9 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    extra = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
-
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=DEFAULT_ORIGINS + extra,
+        allow_origins=DEFAULT_ORIGINS + settings.cors_origin_list,
         allow_methods=["GET", "POST"],
         allow_headers=["Authorization", "Content-Type", "X-Contract-Version", "Last-Event-ID", "X-Request-ID"],
         expose_headers=["X-Request-ID"],
