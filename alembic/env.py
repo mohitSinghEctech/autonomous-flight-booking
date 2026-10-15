@@ -10,12 +10,10 @@ from alembic import context
 # access to the values within the .ini file in use.
 config = context.config
 
-# DATABASE_URL (if set) wins over alembic.ini, so tests can migrate their own database.
-import os  # noqa: E402
-if os.getenv("DATABASE_URL"):
-    from app.db.session import asyncpg_url  # noqa: E402
-    # "%" must be doubled: alembic's config file syntax treats it as interpolation
-    config.set_main_option("sqlalchemy.url", asyncpg_url(os.environ["DATABASE_URL"]).replace("%", "%%"))
+# The app's database URL wins over alembic.ini, so tests can migrate their own database.
+from app.db.session import DATABASE_URL  # noqa: E402
+# "%" must be doubled: alembic's config file syntax treats it as interpolation
+config.set_main_option("sqlalchemy.url", DATABASE_URL.replace("%", "%%"))
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

@@ -3,32 +3,6 @@ from enum import Enum
 
 from pydantic import BaseModel, Field, field_validator
 
-"""
-enums: Cabin, BookingStatus, BookingLifeycle, PaymentStatus
-
-__Search Flights
-SearchFlights(Cabin)[Request]
-Flight(Airport, Cabin, Stop)[Response]
-Stop(Airport)
-Airport
-
-__Passengers
-Passenger
-
-__Booking
-BookFlight[Request]
-BookingResult(BookingStatus)[response]
-
-__App level booking
-Booking(BookingLifecycle)[AppLevel]
-
-__Payment Response
-PaymentResult(PaymentStatus)
-
-
-"""
-
-
 
 #  Search Request Model
 class Cabin(str, Enum):
@@ -50,11 +24,6 @@ class BookingLifecycle(str, Enum):
     EXPIRED = "expired"
     TICKETING_FAILED = "ticketing_failed"
     
-def booking_lifecycle_from_status(status: BookingStatus) -> BookingLifecycle:
-    if status == BookingStatus.HOLD:
-        return BookingLifecycle.HELD
-    raise ValueError(f"Unsupported booking status: {status}")
-
 class SearchFlights(BaseModel):
     origin: str
     destination: str

@@ -34,7 +34,7 @@ import pytest  # noqa: E402
 import uvicorn  # noqa: E402
 
 from app.agent import handlers, llm  # noqa: E402
-from app.api import auth  # noqa: E402
+from app.core.settings import settings  # noqa: E402
 from app.db.models import Passenger, User  # noqa: E402
 from app.db.session import SessionLocal  # noqa: E402
 from app.main import app  # noqa: E402
@@ -97,7 +97,7 @@ async def user(monkeypatch):
         ))
         await session.commit()
 
-    monkeypatch.setattr(auth, "DEMO_USER_ID", str(account.id))
+    monkeypatch.setattr(settings, "demo_user_id", str(account.id))
     return account
 
 

@@ -1,15 +1,15 @@
 import base64
 import hashlib
 import hmac
-import os
+import logging
 
 import httpx
-from dotenv import load_dotenv
 
+from app.core.settings import settings
 from app.models import PaymentResult, PaymentStatus
 from .base import PaymentProvider
 
-load_dotenv()
+logger = logging.getLogger(__name__)
 
 
 # Cashfree payment_status -> ours. Anything not listed counts as failed.
@@ -25,11 +25,11 @@ class CashfreePaymentProvider(PaymentProvider):
     API_VERSION = "2025-01-01"
 
     def __init__(self):
-        self.app_id = os.getenv("CASHFREE_APP_ID")
-        self.api_key = os.getenv("CASHFREE_API_KEY")
-        self.environment = os.getenv("CASHFREE_ENV", "sandbox")
+        self.app_id = settings.cashfree_app_id
+        self.api_key = settings.cashfree_api_key
+        self.environment = settings.cashfree_env
         # Public URL of POST /api/webhooks/cashfree (a tunnel when running locally).
-        self.webhook_url = os.getenv("CASHFREE_WEBHOOK_URL")
+        self.webhook_url = settings.cashfree_webhook_url
 
     @property
     def mode(self) -> str:
@@ -52,6 +52,15 @@ class CashfreePaymentProvider(PaymentProvider):
             "Accept": "application/json",
         }
 
+    def _order_currency(self, currency: str) -> str:
+        """Sandbox only: Indian test cards can't pay a GBP order, so charge test orders
+        in CASHFREE_TEST_CURRENCY instead. Never applies in production."""
+        test_currency = settings.cashfree_test_currency
+        if self.environment == "sandbox" and test_currency and test_currency != currency:
+            logger.warning("sandbox: %s order sent to Cashfree as %s", currency, test_currency)
+            return test_currency
+        return currency
+
     async def create_payment(
         self,
         booking_id: str,
@@ -62,7 +71,7 @@ class CashfreePaymentProvider(PaymentProvider):
         payload = {
             "order_id": booking_id,
             "order_amount": amount,
-            "order_currency": "INR",# currency,
+            "order_currency": self._order_currency(currency),
             "customer_details": {
                 "customer_id": booking_id[:50],
                 "customer_phone": "9999999999",

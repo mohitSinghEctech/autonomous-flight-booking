@@ -1,9 +1,7 @@
 import asyncio
 import logging
-import os
 import time
 
-from dotenv import load_dotenv
 from openai import APIConnectionError, APITimeoutError, AsyncOpenAI, RateLimitError
 
 from app.agent.state import AgentState
@@ -16,17 +14,16 @@ from app.core.errors import (
 )
 from app.core.logging import log_fields
 from app.core.rate_limiter import llm_rate_limiter
+from app.core.settings import settings
 from app.models import BookFlight, SearchFlights
 
-
-load_dotenv()
 
 logger = logging.getLogger(__name__)
 
 llm_semaphore = asyncio.Semaphore(3)
 
 client = AsyncOpenAI(
-    api_key=os.getenv("LLM_API_KEY"),
+    api_key=settings.llm_api_key,
 )
 
 
@@ -165,7 +162,7 @@ async def call_llm(state: AgentState):
 
         async with llm_semaphore:
             response = await client.chat.completions.create(
-                model=os.getenv("LLM_MODEL"),
+                model=settings.llm_model,
                 messages=build_messages(state),
                 tools=[
                     {"type": "function", "function": tool}
@@ -195,7 +192,7 @@ async def call_llm(state: AgentState):
     message = response.choices[0].message.model_dump()
     log_fields(
         logger, "llm call",
-        model=os.getenv("LLM_MODEL"),
+        model=settings.llm_model,
         duration_ms=round((time.monotonic() - started) * 1000),
         input_tokens=input_tokens,
         output_tokens=output_tokens,
