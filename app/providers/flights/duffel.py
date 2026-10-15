@@ -1,5 +1,6 @@
 import os
 import re
+from decimal import Decimal
 
 from app.core.errors import AppError, OfferUnavailable, ProviderError
 from app.models import Flight, Passenger, SearchFlights, BookFlight, Stop, Airport, Cabin, BookingResult
@@ -177,6 +178,29 @@ class DuffelFlightProvider(FlightProvider):
             response.raise_for_status()
 
             return response.json()["data"]
+        
+    async def pay_order(self, provider_booking_id: str, amount: Decimal, currency: str) -> None:
+            """Pay a held order from our Duffel balance. The ticket is issued after this."""
+            payload = {
+                        "data": {
+                            "order_id": provider_booking_id,
+                            "payment": {
+                                "type": "balance",
+                                "amount": str(amount),
+                                "currency": currency
+                            },
+                        }
+                    }
+                    
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{self.base_url}/air/payments",
+                    headers=self.headers,
+                    json=payload,
+                    timeout=30,
+                )
+                
+                raise_for_duffel(response)
     
 
 OFFER_GONE = {"offer_no_longer_available", "offer_expired"}

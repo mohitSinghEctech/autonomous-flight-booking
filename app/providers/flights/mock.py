@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from decimal import Decimal
 
 from app.core.errors import FlightNotFound, InsufficientSeats
 from app.models import (
@@ -212,3 +213,6 @@ class MockFlightProvider(FlightProvider):
                 return flight
 
         return None
+    
+    async def pay_order(self, provider_booking_id: str, amount: Decimal, currency: str) -> None:
+        return None          # pretend the airline accepted the payment

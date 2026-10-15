@@ -11,7 +11,7 @@ import json
 import re
 import uuid
 
-from app.core.errors import OfferUnavailable
+from app.core.errors import OfferUnavailable, ProviderError
 from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
 
@@ -63,6 +63,8 @@ class FakeFlightProvider(FlightProvider):
         self.attempts: list[str] = []
         self.gone: set[str] = set()          # offers the "airline" refuses (offer_no_longer_available)
         self.cancelled: list[str] = []
+        self.paid_orders: list[str] = []     # pay_order calls (provider booking ids)
+        self.fail_payment = False            # True: the "airline" rejects pay_order
 
     @property
     def cheapest(self) -> Flight:
@@ -91,6 +93,11 @@ class FakeFlightProvider(FlightProvider):
 
     async def cancel_order(self, provider_booking_id):
         self.cancelled.append(provider_booking_id)
+
+    async def pay_order(self, provider_booking_id, amount, currency):
+        self.paid_orders.append(provider_booking_id)
+        if self.fail_payment:
+            raise ProviderError("Airline rejected the payment.")
 
 
 class FakePaymentProvider(PaymentProvider):

@@ -166,3 +166,52 @@ async def test_paying_a_confirmed_booking_is_409(session, fakes, api):
     response = await session.api.post(session.url("/payments"))
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "booking_not_payable"
+
+
+# ---- paying the airline after the customer pays -------------------------------------------
+
+async def booking_status(provider_booking_id: str) -> BookingStatus:
+    async with SessionLocal() as db:
+        return (await db.execute(
+            select(Booking.status).where(Booking.provider_booking_id == provider_booking_id)
+        )).scalar_one()
+
+
+async def test_paid_booking_pays_the_airline_once(session, fakes, api):
+    booking = await booked_session(session)
+    payment = await start_payment(session)
+    raw = webhook_body(payment["payment_id"])
+    start = session.stream.last_id
+
+    assert (await post_webhook(api, raw)).status_code == 200
+    await session.stream.wait_for("booking.updated", after=start, where=lambda b: b["lifecycle"] == "confirmed")
+
+    await post_webhook(api, raw)                                     # Cashfree retries the same event
+
+    assert fakes.flights.paid_orders == [booking["booking_id"]]     # the airline is paid exactly once
+    assert await booking_status(booking["booking_id"]) == BookingStatus.CONFIRMED
+
+
+async def test_airline_payment_failure_marks_ticketing_failed(session, fakes, api):
+    booking = await booked_session(session)
+    payment = await start_payment(session)
+    fakes.flights.fail_payment = True
+    start = session.stream.last_id
+
+    assert (await post_webhook(api, webhook_body(payment["payment_id"]))).status_code == 200
+    await session.stream.wait_for("booking.updated", after=start, where=lambda b: b["lifecycle"] == "ticketing_failed")
+
+    async with SessionLocal() as db:
+        row = (await db.execute(select(Payment).where(Payment.provider_payment_id == payment["payment_id"]))).scalar_one()
+
+    assert row.status == PaymentStatus.PAID                          # the customer's money was taken
+    assert await booking_status(booking["booking_id"]) == BookingStatus.TICKETING_FAILED   # but no ticket
+
+
+async def test_unpaid_booking_never_pays_the_airline(session, fakes, api):
+    await booked_session(session)
+    payment = await start_payment(session)
+
+    await post_webhook(api, webhook_body(payment["payment_id"], status="FAILED"))
+
+    assert fakes.flights.paid_orders == []
