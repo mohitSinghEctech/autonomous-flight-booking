@@ -18,6 +18,21 @@ class BookingRepository:
 
     def __init__(self, session: AsyncSession):
         self.session = session
+        
+    async def list_user_bookings(
+        self,
+        user_id: uuid.UUID,
+        limit: int
+    ):
+        """The user's bookings, newest first, at most `limit`."""
+        result = await self.session.execute(
+            select(Booking)
+            .where(Booking.user_id == user_id)
+            .order_by(Booking.created_at.desc(), Booking.id.desc())
+            .limit(limit)
+        )
+        
+        return list(result.scalars().all())
 
     async def get_booking(
         self,

@@ -10,6 +10,7 @@ from app.agent import graph as agent_graph
 from app.api.errors import install_error_handlers
 from app.api.events import CONTRACT_VERSION
 from app.api.routes import router, webhooks
+from app.api.account import account
 from app.api.sessions import session_store
 from app.core.logging import log_fields, request_id_var, setup_logging
 from app.core.settings import settings
@@ -106,6 +107,7 @@ def create_app() -> FastAPI:
     install_error_handlers(app)
 
     app.include_router(router)
+    app.include_router(account)
     app.include_router(webhooks)
 
     return app

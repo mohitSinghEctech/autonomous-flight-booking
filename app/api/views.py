@@ -29,6 +29,19 @@ def local_time(value) -> str | None:
         return value.replace(tzinfo=None).isoformat()
     return str(value)[:19]
 
+def booking_summary_view(booking: db.Booking) -> dict:
+    """One row of the account bookings list (contract §16 BookingSummary)."""
+    return {
+        "id": str(booking.id),                       # our id: used in the detail URL
+        "booking_id": booking.provider_booking_id,   # Duffel's order id
+        "booking_reference": booking.booking_reference,
+        "lifecycle": BookingLifecycle[booking.status.name].value,
+        "total_amount": float(booking.total_amount),
+        "currency": booking.currency,
+        "payment_required_by": iso(booking.payment_required_by),
+        "created_at": iso(booking.created_at),
+        "flight": flight_from_booking(booking),
+    }
 
 def passenger_view(passenger: db.Passenger) -> dict:
     return {"id": str(passenger.id), "name": f"{passenger.given_name} {passenger.family_name}"}
@@ -88,7 +101,24 @@ def booking_view(booking: db.Booking, passengers: list[db.Passenger]) -> dict:
         "flight_id": booking.flight_number,          # = provider offer id, matches the flight list
         "passengers": [passenger_view(p) for p in passengers],
     }
+    
+def booking_detail_view(booking: db.Booking, passengers: list[db.Passenger]) -> dict:
+    """One booking with its passengers and latest payment (contract §16 BookingDetail)."""
+    latest = max(booking.payments, key=lambda p: p.created_at, default=None)
 
+    return {
+        **booking_summary_view(booking),
+        "passengers": [
+            {"id": str(p.id), "given_name": p.given_name, "family_name": p.family_name}
+            for p in passengers
+        ],
+        "payment": None if latest is None else {
+            "payment_id": latest.provider_payment_id,
+            "status": latest.status.value,
+            "amount": float(latest.amount),
+            "currency": latest.currency,
+        },
+    }
 
 def payment_view(payment: db.Payment) -> dict:
     status = payment.status.value

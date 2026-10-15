@@ -58,7 +58,7 @@ PaymentState = Literal["created", "pending", "paid", "failed", "expired"]
 ErrorCode = Literal[
     "validation_error", "unauthenticated", "forbidden", "session_not_found",
     "turn_in_progress", "approval_not_pending", "approval_already_resolved",
-    "flight_not_found", "no_active_booking", "booking_not_payable", "payment_not_found",
+    "flight_not_found", "booking_not_found", "no_active_booking", "booking_not_payable", "payment_not_found",
     "provider_unavailable", "provider_error", "rate_limited", "contract_mismatch", "internal_error",
 ]
 
