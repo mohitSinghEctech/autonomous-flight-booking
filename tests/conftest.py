@@ -15,7 +15,6 @@ import uuid
 from datetime import date
 from pathlib import Path
 
-# ---- environment BEFORE the app is imported -------------------------------------------
 TEST_DB = "flight_booking_test"
 BASE_URL = "postgresql+asyncpg://flight_user:flight_password@localhost:5432"
 os.environ["DATABASE_URL"] = f"{BASE_URL}/{TEST_DB}"
@@ -174,7 +173,7 @@ class Conversation:
         response = await self.say(text)
         assert response.status_code == 202
         approval = (await self.stream.wait_for("approval.required", after=start))["data"]
-        await self.stream.wait_for("turn.completed", after=start)   # the turn is fully closed
+        await self.stream.wait_for("turn.completed", after=start)
         return approval
 
     async def until_booked(self) -> dict:

@@ -38,8 +38,6 @@ def build_config(thread_id: str) -> dict:
     return {"configurable": {"thread_id": thread_id}}
 
 
-# ---- the turn wrapper ------------------------------------------------------------
-
 @asynccontextmanager
 async def turn(session: Session, title: str, origin: str):
     context = progress.TurnContext(session.thread_id, session.next_turn_id(), origin)
@@ -92,8 +90,6 @@ async def turn(session: Session, title: str, origin: str):
 def is_waiting(session: Session) -> bool:
     return bool(session.state["approval"] or session.state["passenger_request"])
 
-
-# ---- graph helpers ------------------------------------------------------------------
 
 async def agent_values(thread_id: str) -> dict:
     snapshot = await agent_graph.graph.aget_state(build_config(thread_id))
@@ -181,8 +177,6 @@ async def supersede_pending(session: Session) -> None:
         session.pending_kind = None
 
 
-# ---- turns started by routes ----------------------------------------------------------------
-
 async def run_message(session: Session, text: str, *, title: str, origin: str = "user") -> None:
     """A chat message (or a flight picked on the board, origin='selection')."""
 
@@ -191,7 +185,6 @@ async def run_message(session: Session, text: str, *, title: str, origin: str = 
 
         result = await agent_graph.graph.ainvoke(
             {
-                # Only what is NEW this turn; the checkpoint keeps the rest.
                 "messages": [{"role": "user", "content": text}],
                 "user_id": session.user_id,
             },
@@ -252,8 +245,6 @@ async def resume_passengers(session: Session, request_id: str, decision: str, pa
         await handle_graph_result(session, result, "passengers")
 
 
-# ---- payments (buttons, not chat) -------------------------------------------------------------
-
 async def start_payment(session: Session) -> None:
 
     async with turn(session, "Payment", "payment"):
@@ -312,7 +303,6 @@ async def apply_webhook(order_id: str, status: ProviderPaymentStatus, event_id: 
         )
         passengers = await BookingService(db_session).booking_passengers(booking)
 
-    # after a restart the in-memory map is empty: find the conversation showing this payment
     thread_id = session_store.order_threads.get(order_id) or await session_store.thread_for_payment(order_id)
 
     if thread_id and not duplicate:
@@ -348,8 +338,6 @@ async def publish_payment_change(thread_id, payment, booking, passengers, change
     if session is not None:
         session_store.save_soon(session)
 
-
-# ---- cancellation (app-level approval, no LLM) -----------------------------------------------------
 
 async def request_cancellation(session: Session) -> None:
 

@@ -1,6 +1,6 @@
 # Project 1 — AI Flight Booking: status
 
-Updated 2026-10-06. This repo is the learning project for agentic AI, GenAI, RAG and backend engineering.
+Updated 2026-11-09. This repo is the learning project for agentic AI, GenAI, RAG and backend engineering.
 
 ## Status board
 
@@ -10,7 +10,7 @@ Async Python                        ✅
 Provider abstraction                ✅
 Duffel integration                  ✅  (+ duration, order cancellation)
 Domain models                       ✅
-Booking lifecycle                   ✅  (+ cancelled, expired)
+Booking lifecycle                   ✅  (+ cancelled, expired, ticketing_failed)
 LLM tool calling                    ✅
 LangGraph                           ✅
 State/routing                       ✅
@@ -25,6 +25,7 @@ Service layer                       ✅
 Payment provider                    ✅
 Payment service                     ✅
 Payment idempotency                 ✅  tested
+Paid → ticketed (Duffel pay order)  ✅  ticketing_failed when Duffel refuses after payment
 
 SSE transport                       ✅
 SSE heartbeat                       ✅
@@ -44,13 +45,17 @@ Payment SSE events                  ✅
 Web contract completion             ✅  contract v1.1, UI works live (?live=1)
 Payment webhook idempotency         ✅  signed + (provider, event_id) unique + state machine
 Passenger-required workflow         ✅  interrupt → form → Postgres → resume
-Full integration tests              ✅  62 tests, real uvicorn + Postgres + SSE
+Full integration tests              ✅  71 tests, real uvicorn + Postgres + SSE (fakes for LLM/Duffel/Cashfree)
+Account API: bookings list + detail ✅  GET /api/bookings, GET /api/bookings/{id}
+Account API: cancel, passengers     ❌  planned (docs/account-api-plan.md)
+Booking-flow UX (contract v1.3)     ❌  planned (docs/booking-flow-ux-plan.md)
 
-Docker                              ✅  alpine multi-stage 246 MB, non-root, healthcheck, compose: postgres → migrate → api
+Docker                              ✅  alpine multi-stage, non-root, healthcheck; compose runs the whole
+                                        stack: postgres → migrate → api + web (UI + Auth emulator) + seed-user
 Observability                       ✅  JSON logs, request/thread/turn ids, LLM tokens + timings, token redaction
 Production hardening                ✅  Firebase token verification, per-user sessions, restart-safe (Postgres
                                         checkpointer + chat_sessions), approval expiry, config fail-fast, DB health
-Deployment                          ⏳  next — together
+Deployment                          ❌  not started
 
 Project 2 RAG                       ⏸ DEFERRED
 ```
@@ -68,26 +73,32 @@ Project 2 RAG                       ⏸ DEFERRED
 ## Run
 
 ```bash
-docker compose up --build -d     # postgres → migrate → api on :8000
+docker compose up -d --build      # whole stack, see README for URLs
 uv run pytest -q                  # tests (need postgres up)
 ```
 
-Docker lessons: MCP stdio passes only HOME/PATH to the server subprocess (pass secrets explicitly); Duffel test mode only holds reliably on Duffel Airways.
+UI locally: `http://localhost:5055/index.html?emulate=1&next=/flight/` (login `demo@atlas.test` / `atlas-demo-123`, emulator only).
+Live UI: `https://provenance.web.app/flight/` (talks to `http://localhost:8000/api` by default; `?api=` for another API).
 
-UI: `https://provenance.web.app/flight/?live=1` (or the agent-console emulator at `http://localhost:5055/flight/?emulate=1&live=1`).
+Notes:
+- MCP stdio passes only HOME/PATH to the server subprocess, so secrets are passed explicitly.
+- Duffel test mode only holds reliably on Duffel Airways (ZZ); other carriers often answer `offer_no_longer_available`.
+- Cashfree sandbox charges in `CASHFREE_TEST_CURRENCY` (INR) when set; never in production.
+- The mock flight/payment/passenger providers were removed; tests use `tests/fakes.py`.
 
-## Next session: deployment
+## Not done yet
 
-1. Pick the host (one container + managed Postgres): Cloud Run + Cloud SQL / Neon, or Render / Fly.
-2. Secrets in the platform's secret store; `AUTH_MODE=firebase`, **no** `FIREBASE_AUTH_EMULATOR_HOST`.
-3. Run `alembic upgrade head` as a release step, then start ONE instance (`PORT` is honoured).
-4. `CASHFREE_WEBHOOK_URL` = the public URL; test the webhook end to end.
-5. Point the UI at the API URL and redeploy agent-console.
-
-Later: trim LLM context (~15k tokens per call), Langfuse tracing, CI.
+| Area | State |
+|---|---|
+| Account API: cancel from account page, passenger list/add/delete, pagination cursor | planned, `docs/account-api-plan.md` |
+| Booking-flow UX: home search form, inline passenger errors, close trip, recent searches | planned, `docs/booking-flow-ux-plan.md` |
+| Deployment (host, managed Postgres, secrets, public webhook URL) | not started |
+| LLM context trim (~15k input tokens per call), tracing, CI | not started |
 
 ## Docs
 
-- `docs/api-layer.md`: how the API layer works, design decisions, tests, limits, interview answers
-- `docs/api-fixes-2026-10-06.md`: the 500 and the 6 bugs found with it
+- `docs/api-layer.md`: how the API layer works, design decisions, tests, limits
+- `docs/interview-guide.html`: the whole project explained for interviews
+- `docs/api-fixes-2026-10-06.md`: the 500 and the 6 bugs found with it (history)
+- `docs/account-api-plan.md`, `docs/booking-flow-ux-plan.md`: planned work
 - `agent-console/docs/api-contract.md`: the UI ↔ API contract (v1.1)

@@ -43,8 +43,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api")
 webhooks = APIRouter(prefix="/api/webhooks")
 
-# asyncio keeps only a WEAK reference to tasks: without this set a running
-# turn can be garbage-collected halfway through.
 _background_tasks: set[asyncio.Task] = set()
 
 
@@ -106,8 +104,6 @@ def lock_or_409(session: Session) -> None:
         raise ApiError(409, "turn_in_progress", "ATLAS is still working on your last request.", retryable=True)
 
 
-# ---- health + sessions ------------------------------------------------------------------
-
 @router.get("/health")
 async def health():
     """Liveness + the one dependency we can't work without. 503 makes the platform restart us."""
@@ -127,14 +123,12 @@ async def create_session(user_id: str = Depends(current_user_id)):
     return {"thread_id": session.thread_id, "contract_version": CONTRACT_VERSION}
 
 
-# ---- the stream ------------------------------------------------------------------------
-
 @router.get("/sessions/{thread_id}/stream")
 async def stream_session(
     thread_id: str,
     request: Request,
     last_event_id: str | None = Header(default=None),
-    user_id: str = Depends(current_user_id),     # token arrives as ?access_token= (contract §2)
+    user_id: str = Depends(current_user_id),
 ):
     """
     1. subscribe first (so nothing published from now on is missed)
@@ -168,7 +162,7 @@ async def stream_session(
                     continue
 
                 if event.event_id is not None and event.event_id <= snapshot_id:
-                    continue          # already inside the snapshot
+                    continue
 
                 yield event.to_sse()
 
@@ -186,13 +180,10 @@ async def stream_session(
     )
 
 
-# ---- chat --------------------------------------------------------------------------------
-
 @router.post("/sessions/{thread_id}/messages", status_code=202)
 async def send_message(thread_id: str, body: MessageIn, user_id: str = Depends(current_user_id)):
     session = await get_session(thread_id, user_id)
 
-    # retry-safe: the same client_id is the same request
     if body.client_id in session.seen_client_ids:
         return accepted(session.seen_client_ids[body.client_id])
 
@@ -201,15 +192,12 @@ async def send_message(thread_id: str, body: MessageIn, user_id: str = Depends(c
     turn_id = f"t{session.turn_counter + 1}"
     session.seen_client_ids[body.client_id] = turn_id
 
-    # the user's bubble appears immediately, with the id the browser made
     await publish_message("user", body.text, message_id=body.client_id, thread_id=thread_id)
 
     start_turn(session, runner.run_message(session, body.text, title=body.text[:80]))
 
     return accepted(turn_id)
 
-
-# ---- the user's answers --------------------------------------------------------------------
 
 @router.post("/sessions/{thread_id}/approvals/{approval_id}", status_code=202)
 async def decide(thread_id: str, approval_id: str, body: ApprovalIn, user_id: str = Depends(current_user_id)):
@@ -220,7 +208,7 @@ async def decide(thread_id: str, approval_id: str, body: ApprovalIn, user_id: st
         previous = session.resolved.get(approval_id)
 
         if previous == body.decision:
-            return accepted()               # double click: same answer, nothing runs twice
+            return accepted()
 
         if previous is not None:
             raise ApiError(409, "approval_already_resolved", f"This was already {previous}.")
@@ -229,7 +217,6 @@ async def decide(thread_id: str, approval_id: str, body: ApprovalIn, user_id: st
 
     lock_or_409(session)
 
-    # an approval is only good while the airline's offer is: late "yes" books nothing
     decision = body.decision
     if decision == "approved" and is_past(pending.get("expires_at")):
         decision = "expired"
@@ -280,7 +267,6 @@ async def select_flight(thread_id: str, body: FlightSelectionIn, user_id: str = 
     time = local_time(flight["departure_datetime"])[11:16]
     shown = f"{'Switch to' if held else 'I’ll take'} {flight['flight_name']} at {time} ({flight['price']:.2f} {flight['currency']})."
 
-    # the LLM gets an exact instruction; the user sees a friendly line
     instruction = (
         f"I choose flight_id {flight['flight_id']} ({flight['flight_name']}, departs {time}). "
         f"Book exactly this flight for the passengers of this trip."
@@ -292,8 +278,6 @@ async def select_flight(thread_id: str, body: FlightSelectionIn, user_id: str = 
 
     return accepted(turn_id)
 
-
-# ---- payments + cancellation (buttons) -----------------------------------------------------------
 
 @router.post("/sessions/{thread_id}/payments", status_code=202)
 async def start_payment(thread_id: str, user_id: str = Depends(current_user_id)):
@@ -319,7 +303,6 @@ async def sync_payment(thread_id: str, payment_id: str, user_id: str = Depends(c
     if (session.state["payment"] or {}).get("payment_id") != payment_id:
         raise ApiError(404, "payment_not_found", "Unknown payment.")
 
-    # not a turn: checking a payment must never block the chat
     task = asyncio.create_task(runner.sync_payment(session))
     _background_tasks.add(task)
     task.add_done_callback(_background_tasks.discard)
@@ -339,8 +322,6 @@ async def cancel_booking(thread_id: str, user_id: str = Depends(current_user_id)
 
     return accepted()
 
-
-# ---- Cashfree -> us ---------------------------------------------------------------------------------
 
 @webhooks.post("/cashfree")
 async def cashfree_webhook(

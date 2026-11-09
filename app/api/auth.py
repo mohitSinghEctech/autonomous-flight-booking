@@ -37,9 +37,6 @@ logger = logging.getLogger(__name__)
 CERTS_URL = "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com"
 
 
-
-# ---- Google's signing certs (rotate; cached for as long as Google says) --------------
-
 _certs: dict[str, str] = {}
 _certs_expire_at = 0.0
 
@@ -108,7 +105,6 @@ def display_name(claims: dict) -> tuple[str, str]:
     return given[:100] or "Traveller", family[:100] or "-"
 
 
-# firebase uid -> users.id; the mapping never changes, so no DB hit after the first request
 _user_ids: dict[str, str] = {}
 
 

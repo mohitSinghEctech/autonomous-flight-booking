@@ -18,7 +18,6 @@ def restart_api_memory(thread_id: str) -> None:
 async def test_a_pending_approval_survives_a_restart_and_can_still_be_approved(api, server, user, fakes):
     url = os.environ["DATABASE_URL"]
 
-    # 1st "process": real Postgres checkpointer, conversation paused at the approval
     async with agent_graph.postgres_checkpointer(url):
         thread_id = (await api.post("/api/sessions")).json()["thread_id"]
 
@@ -34,7 +33,6 @@ async def test_a_pending_approval_survives_a_restart_and_can_still_be_approved(a
 
     restart_api_memory(thread_id)
 
-    # 2nd "process": new pool, new saver, empty memory — same database
     async with agent_graph.postgres_checkpointer(url):
         async with EventStream(f"{server}/api/sessions/{thread_id}/stream") as stream:
             snapshot = (await stream.wait_for("session.snapshot"))["data"]
@@ -49,7 +47,7 @@ async def test_a_pending_approval_survives_a_restart_and_can_still_be_approved(a
             booked = await stream.wait_for("booking.updated", where=lambda b: b and b["lifecycle"] == "held")
             await stream.wait_for("turn.completed", after=booked["id"])
 
-    assert booked["id"] > last_id_before                 # ids keep increasing: the browser won't drop them
+    assert booked["id"] > last_id_before
     assert fakes.flights.booked == [approval["flight_id"]]
     await session_store.flush()
 
@@ -63,13 +61,12 @@ async def test_a_retried_message_after_a_restart_is_still_deduplicated(api, sess
     again = await session.say("Find flights from DEL to DXB for 1 passenger", client_id=client_id)
 
     assert again.status_code == 202
-    assert again.json()["turn_id"] == "t1"                # same turn, nothing re-run
+    assert again.json()["turn_id"] == "t1"
 
 
 async def test_approving_after_the_offer_expired_books_nothing(session, fakes):
     approval = await session.until_approval()
 
-    # the airline's deadline passes while the card is on screen
     session_store.get(session.thread_id).state["approval"]["expires_at"] = (
         datetime.now(timezone.utc) - timedelta(minutes=1)
     ).isoformat()

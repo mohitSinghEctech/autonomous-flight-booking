@@ -23,8 +23,6 @@ from pydantic import BaseModel, Field, field_validator
 CONTRACT_VERSION = "1.1"
 
 
-# ---- the wire format --------------------------------------------------------
-
 @dataclass
 class SSEEvent:
     event: str
@@ -38,13 +36,10 @@ class SSEEvent:
             lines.append(f"id: {self.event_id}")
 
         lines.append(f"event: {self.event}")
-        # one line of compact JSON; datetimes etc. become strings
         lines.append("data: " + json.dumps(self.data, separators=(",", ":"), default=str))
 
         return "\n".join(lines) + "\n\n"
 
-
-# ---- enums ------------------------------------------------------------------
 
 Stage = Literal[
     "idle", "thinking", "searching", "loading_passengers",
@@ -62,8 +57,6 @@ ErrorCode = Literal[
     "provider_unavailable", "provider_error", "rate_limited", "contract_mismatch", "internal_error",
 ]
 
-
-# ---- value objects ------------------------------------------------------------
 
 class PassengerView(BaseModel):
     id: str
@@ -86,9 +79,9 @@ class FlightView(BaseModel):
     flight_name: str
     origin: AirportView
     destination: AirportView
-    departure_datetime: str        # LOCAL airport time, no offset
+    departure_datetime: str
     arrival_datetime: str
-    price: float                   # total for all passengers
+    price: float
     currency: str
     cabin: str
     duration_minutes: int | None = None
@@ -105,7 +98,7 @@ class SearchQuery(BaseModel):
 
 
 class BookingView(BaseModel):
-    booking_id: str                # PROVIDER id (Duffel ord_...)
+    booking_id: str
     booking_reference: str
     lifecycle: Lifecycle
     total_amount: float
@@ -123,7 +116,7 @@ class Checkout(BaseModel):
 
 
 class PaymentView(BaseModel):
-    payment_id: str                # provider order id
+    payment_id: str
     status: PaymentState
     amount: float
     currency: str
@@ -131,8 +124,6 @@ class PaymentView(BaseModel):
     failure_reason: str | None = None
     paid_at: str | None = None
 
-
-# ---- event payloads -----------------------------------------------------------
 
 class StatusEvent(BaseModel):
     busy: bool
@@ -219,8 +210,6 @@ class ErrorEvent(BaseModel):
     recoverable: bool = True
 
 
-# ---- request bodies -------------------------------------------------------------
-
 class MessageIn(BaseModel):
     text: str = Field(min_length=1, max_length=2000)
     client_id: str = Field(min_length=4, max_length=64)
@@ -244,7 +233,7 @@ class NewPassenger(BaseModel):
     gender: Literal["m", "f"]
     born_on: date
     email: str = Field(pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$", max_length=255)
-    phone_number: str = Field(pattern=r"^\+[1-9]\d{7,14}$")      # E.164, what Duffel accepts
+    phone_number: str = Field(pattern=r"^\+[1-9]\d{7,14}$")
 
     @field_validator("phone_number")
     @classmethod

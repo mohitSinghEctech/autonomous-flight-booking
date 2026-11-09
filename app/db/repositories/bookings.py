@@ -100,7 +100,6 @@ class BookingRepository:
             currency=currency,
             payment_required_by=payment_required_by,
 
-            # Flight snapshot
             flight_number=flight.flight_number,
             flight_name=flight.flight_name,
 

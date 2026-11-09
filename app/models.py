@@ -4,7 +4,6 @@ from enum import Enum
 from pydantic import BaseModel, Field, field_validator
 
 
-#  Search Request Model
 class Cabin(str, Enum):
     ECONOMY = "economy"
     BUSINESS = "business"
@@ -34,11 +33,10 @@ class SearchFlights(BaseModel):
     @field_validator("date")
     def validate_date(cls, value):
         if value < date.today():
-            raise ValueError("Date should be equal to or greater than current date.")
+            raise ValueError(f"Date {value.isoformat()} is in the past; today is {date.today().isoformat()}.")
         return value
     
     
-# Search Response Model
 
 class Airport(BaseModel):
     airport_name: str
@@ -66,15 +64,13 @@ class Flight(BaseModel):
     expires_at: datetime | None = None
     requires_instant_payment: bool | None = None
     payment_required_by: datetime | None = None
-    duration_minutes: int | None = None        # Duffel slice.duration (ISO 8601)
+    duration_minutes: int | None = None
     stops: list[Stop]
     
-# Book Flights
 class BookFlight(BaseModel):
     flight_id: str
     passenger_ids: list[str] = Field(min_length=1)
     
-#  Passenger
 class Passenger(BaseModel):
     id: str
     title: str
@@ -101,7 +97,6 @@ class Booking(BaseModel):
     currency: str
     payment_required_by: datetime | None = None
     
-# Payment
 class PaymentStatus(str, Enum):
     CREATED = "created"
     PENDING = "pending"

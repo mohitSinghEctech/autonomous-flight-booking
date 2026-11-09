@@ -1,3 +1,4 @@
+from datetime import date
 import asyncio
 import logging
 import time
@@ -33,7 +34,6 @@ NO_ARGUMENTS = {
     "additionalProperties": False,
 }
 
-# What the LLM is allowed to ask for. Each name maps to a handler in tools.py.
 TOOLS = [
     {
         "name": "search_flights",
@@ -124,7 +124,8 @@ GUIDE = (
 def build_messages(state: AgentState) -> list[dict]:
     """Conversation history, plus the app's booking/payment state if any."""
 
-    messages = [{"role": "system", "content": GUIDE}, *state["messages"]]
+    guide = f"{GUIDE} Today is {date.today().isoformat()}; resolve relative or partial dates against it and never refuse a future date yourself, let search_flights decide."
+    messages = [{"role": "system", "content": guide}, *state["messages"]]
 
     booking = state.get("booking")
     payment = state.get("payment")

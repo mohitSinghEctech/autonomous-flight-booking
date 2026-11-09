@@ -55,7 +55,6 @@ class User(Base):
         nullable=False,
     )
 
-    # Firebase Auth uid; NULL for users created before sign-in existed (the demo user)
     firebase_uid: Mapped[str | None] = mapped_column(
         String(128),
         unique=True,
@@ -90,8 +89,6 @@ class Passenger(Base):
         nullable=False,
     )
 
-    # Travel details the flight provider needs to issue a booking.
-    # Nullable so profiles can be created before they are complete.
     title: Mapped[str | None] = mapped_column(
         String(10),
         nullable=True,
@@ -291,8 +288,6 @@ class Booking(Base):
         nullable=False,
     )
 
-    # The booking's ID at the flight provider (e.g. a Duffel order ID).
-    # Never the same thing as `id`, which is our own database UUID.
     provider_booking_id: Mapped[str | None] = mapped_column(
         String(100),
         nullable=True,
@@ -324,7 +319,6 @@ class Booking(Base):
         nullable=True,
     )
 
-    # Flight snapshot
     flight_number: Mapped[str] = mapped_column(
         String(50),
         nullable=False,

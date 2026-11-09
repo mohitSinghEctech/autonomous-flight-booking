@@ -42,7 +42,7 @@ async def passengers_node(state: AgentState):
         saved = await BookingService(session).list_passengers(current_user_id(state))
 
     request = {
-        "request_id": f"pr_{call['id']}",          # stable across the node's re-run on resume
+        "request_id": f"pr_{call['id']}",
         "needed": needed,
         "existing": [passenger_view(p) for p in saved],
         "fields": PASSENGER_FIELDS,
@@ -68,7 +68,6 @@ async def passengers_node(state: AgentState):
         }
     ]
 
-    # any other tool call in the same message was not run: say so
     others = [tc for tc in tool_calls if tc["id"] != call["id"]]
     replies += skip_tool_calls(others, "Not run: call it again now that passengers are added.")["messages"]
 

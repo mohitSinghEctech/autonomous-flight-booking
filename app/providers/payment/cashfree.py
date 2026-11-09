@@ -12,7 +12,6 @@ from .base import PaymentProvider
 logger = logging.getLogger(__name__)
 
 
-# Cashfree payment_status -> ours. Anything not listed counts as failed.
 _STATUS = {
     "SUCCESS": PaymentStatus.PAID,
     "PENDING": PaymentStatus.PENDING,
@@ -28,7 +27,6 @@ class CashfreePaymentProvider(PaymentProvider):
         self.app_id = settings.cashfree_app_id
         self.api_key = settings.cashfree_api_key
         self.environment = settings.cashfree_env
-        # Public URL of POST /api/webhooks/cashfree (a tunnel when running locally).
         self.webhook_url = settings.cashfree_webhook_url
 
     @property
@@ -128,7 +126,6 @@ class CashfreePaymentProvider(PaymentProvider):
                 currency=currency,
             )
 
-        # One successful attempt is enough; otherwise the latest attempt decides.
         success = next((a for a in attempts if a.get("payment_status") == "SUCCESS"), None)
         attempt = success or attempts[0]
 
@@ -139,7 +136,6 @@ class CashfreePaymentProvider(PaymentProvider):
             currency=attempt.get("payment_currency", currency),
         )
 
-    # ---- webhooks ---------------------------------------------------------
 
     def verify_webhook(self, raw_body: bytes, timestamp: str, signature: str) -> bool:
         """Cashfree: signature = base64(HMAC-SHA256(secret_key, timestamp + raw_body))."""

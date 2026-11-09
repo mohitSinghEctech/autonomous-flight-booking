@@ -26,7 +26,7 @@ async def list_bookings(
 
     return {
         "items": [booking_summary_view(booking) for booking in bookings],
-        "next_cursor": None,          # pagination comes in the next step
+        "next_cursor": None,
     }
     
 @account.get("/bookings/{booking_id}")

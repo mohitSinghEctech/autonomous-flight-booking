@@ -1,0 +1,14 @@
+{
+  "hosting": {
+    "public": "public",
+    "headers": [{ "source": "**/*.@(js|css|html)", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }]
+  },
+  "emulators": {
+    "auth": { "host": "0.0.0.0", "port": 9099 },
+    "hosting": { "host": "0.0.0.0", "port": 5055 },
+    "ui": { "enabled": true, "host": "0.0.0.0", "port": 4055 },
+    "hub": { "host": "0.0.0.0", "port": 4400 },
+    "logging": { "host": "0.0.0.0", "port": 4500 },
+    "singleProjectMode": true
+  }
+}

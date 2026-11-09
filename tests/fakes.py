@@ -55,16 +55,16 @@ class FakeFlightProvider(FlightProvider):
             offer.flight_id: offer
             for offer in [
                 make_offer(0, 120.00, f"{day}T06:00"),
-                make_offer(1, 96.50, f"{day}T09:30"),      # cheapest
+                make_offer(1, 96.50, f"{day}T09:30"),
                 make_offer(2, 140.00, f"{day}T18:15"),
             ]
         }
         self.booked: list[str] = []
         self.attempts: list[str] = []
-        self.gone: set[str] = set()          # offers the "airline" refuses (offer_no_longer_available)
+        self.gone: set[str] = set()
         self.cancelled: list[str] = []
-        self.paid_orders: list[str] = []     # pay_order calls (provider booking ids)
-        self.fail_payment = False            # True: the "airline" rejects pay_order
+        self.paid_orders: list[str] = []
+        self.fail_payment = False
 
     @property
     def cheapest(self) -> Flight:
@@ -143,8 +143,6 @@ class FakeMCPClient:
     async def search_flights(self, **kwargs):
         return json.dumps([f.model_dump(mode="json") for f in self.flights.offers.values()])
 
-
-# ---- a rule-based fake LLM -------------------------------------------------------------
 
 class FakeLLM:
     """

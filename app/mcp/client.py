@@ -8,8 +8,6 @@ from app.core.settings import settings
 
 class FlightMCPClient:
     def __init__(self):
-        # The server runs as a child process that only gets the env we pass it,
-        # so the Duffel token must be handed over explicitly.
         self.server = StdioServerParameters(
             command=sys.executable,
             args=["app/mcp/server.py"],

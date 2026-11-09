@@ -183,8 +183,8 @@ class DuffelFlightProvider(FlightProvider):
                 "order_id": provider_booking_id,
                 "payment": {
                     "type": "balance",
-                    "amount": str(amount),      # Duffel wants money as a string
-                    "currency": currency,       # the order's own currency
+                    "amount": str(amount),
+                    "currency": currency,
                 },
             }
         }

@@ -1,6 +1,6 @@
 # Account API — implementation plan (contract v1.2, planned)
 
-**Status:** plan only. Nothing here is implemented. The UI side is done and already calls these endpoints
+**Status (2026-11-09):** partly implemented. Done: `GET /api/bookings` (limit only, `next_cursor` is always null) and `GET /api/bookings/{id}`, tested in `tests/test_account.py`. Not done: cancel, passengers, cursor pagination, lazy expiry, migration. The UI side is done and already calls these endpoints
 (`agent-console/public/flight/src/ui/account/`); until they exist it shows "Not available yet — needs `GET /api/…`".
 
 **Spec:** `agent-console/docs/api-contract.md` §16 · **UI mirror:** `public/flight/src/api/contract.js` (`ACCOUNT_ENDPOINTS`, typedefs)

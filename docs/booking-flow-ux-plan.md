@@ -1,6 +1,6 @@
 # Booking-flow UX — implementation plan (contract v1.3, planned)
 
-**Status:** plan only. Nothing here is implemented (backend or UI), except the journey bar move noted in §0.
+**Status (2026-11-09):** still plan only. Nothing here is implemented (backend or UI), except the journey bar move noted in §0.
 **UI:** `agent-console/public/flight/` · **Spec:** `agent-console/docs/api-contract.md` · **UI mirror:** `src/api/contract.js`
 · **Backend mirror:** `app/api/events.py`. As always: change those three together.
 

@@ -24,7 +24,7 @@ from app.api.events import SSEEvent
 class TurnContext:
     thread_id: str
     turn_id: str
-    origin: str = "user"                 # user | selection | approval | payment | cancel
+    origin: str = "user"
     llm_calls: int = 0
     open_steps: set[str] = field(default_factory=set)
     started: float = field(default_factory=time.monotonic)
@@ -61,7 +61,7 @@ def _thread(thread_id: str | None) -> str | None:
 async def publish(event: str, data: Any, thread_id: str | None = None) -> None:
     target = _thread(thread_id)
     if target is None:
-        return  # running outside the API (e.g. python -m app.graph): nobody is listening
+        return
     await event_bus.publish(target, SSEEvent(event=event, data=data))
 
 
@@ -71,13 +71,9 @@ async def publish_model(event: str, model: type[contract.BaseModel], data: dict,
     await publish(event, payload, thread_id)
 
 
-# ---- status ---------------------------------------------------------------------
-
 async def set_status(busy: bool, stage: str, text: str, thread_id: str | None = None) -> None:
     await publish_model("status", contract.StatusEvent, {"busy": busy, "stage": stage, "text": text}, thread_id)
 
-
-# ---- steps (the agent trace in the chat) -------------------------------------------
 
 async def start_step(
     kind: str,
@@ -124,8 +120,6 @@ async def finish_step(step_id: str, *, status: str = "done", detail: str | None 
         "ended_at": now(),
     }, thread_id)
 
-
-# ---- messages, errors -----------------------------------------------------------------
 
 async def publish_message(role: str, text: str, *, message_id: str | None = None, thread_id: str | None = None) -> None:
     await publish_model("message", contract.MessageEvent, {
