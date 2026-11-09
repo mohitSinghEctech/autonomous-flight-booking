@@ -41,10 +41,10 @@ PASSENGER_DETAIL_FIELDS = ("title", "gender", "born_on", "email", "phone_number"
 
 
 class ToolResult(NamedTuple):
-    content: Any                     # sent back to the LLM as the tool message
-    update: dict = {}                # AgentState changes, applied by tools.py
-    events: list = []                # [(event_name, data)] for the browser
-    summary: str | None = None       # one line for the step in the UI trace
+    content: Any
+    update: dict = {}
+    events: list = []
+    summary: str | None = None
 
 
 def parse_arguments[T: BaseModel](tool_call: dict, model: type[T]) -> T:
@@ -102,7 +102,6 @@ async def handle_get_saved_passengers(tool_call: dict, state: dict) -> ToolResul
     content = [
         {
             **passenger_view(passenger),
-            # the LLM must not book someone Duffel would reject
             "missing_details": [f for f in PASSENGER_DETAIL_FIELDS if getattr(passenger, f) is None],
         }
         for passenger in passengers
@@ -119,7 +118,6 @@ async def handle_book_flight(tool_call: dict, state: dict) -> ToolResult:
     async with SessionLocal() as session:
         service = BookingService(session)
 
-        # Change flow: release the current hold before taking a new one.
         current = state.get("booking") or {}
         if current.get("lifecycle") in ACTIVE_LIFECYCLES and state.get("db_booking_id"):
             await service.cancel_booking(user_id, uuid.UUID(state["db_booking_id"]))
@@ -169,8 +167,6 @@ async def handle_complete_payment(tool_call: dict, state: dict) -> ToolResult:
     return payment_result(payment, db_booking, passengers, f"Payment {payment.status.value}")
 
 
-# --- translation helpers ---------------------------------------------------
-
 def current_user_id(state: dict) -> uuid.UUID:
     return uuid.UUID(state["user_id"])
 
@@ -183,7 +179,6 @@ def current_booking_id(state: dict) -> uuid.UUID:
 
 
 def to_booking_state(db_booking: db.Booking) -> dict:
-    # booking_id is the provider's ID; our database UUID stays in db_booking_id
     return Booking(
         booking_id=db_booking.provider_booking_id,
         booking_reference=db_booking.booking_reference,

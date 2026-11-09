@@ -18,30 +18,23 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    # ---- app ----
     log_level: str = "INFO"
-    cors_origins: str = ""                  # extra allowed origins, comma separated
+    cors_origins: str = ""
 
-    # ---- database ----
     database_url: str = "postgresql+asyncpg://flight_user:flight_password@localhost:5432/flight_booking"
-    db_null_pool: bool = False              # tests: no pooling (each test has its own event loop)
+    db_null_pool: bool = False
 
-    # ---- LLM ----
     llm_api_key: str = ""
     llm_model: str = ""
 
-    # ---- flights (Duffel) ----
     flight_vendor_token: str = ""
 
-    # ---- payments (Cashfree) ----
     cashfree_app_id: str = ""
     cashfree_api_key: str = ""
     cashfree_env: Literal["sandbox", "production"] = "sandbox"
     cashfree_webhook_url: str | None = None
-    # Sandbox only: charge test orders in this currency (Indian test cards can't pay GBP).
     cashfree_test_currency: str | None = None
 
-    # ---- auth (Firebase) ----
     auth_mode: Literal["firebase", "demo"] = "firebase"
     firebase_project_id: str = "mks-agent-console"
     firebase_auth_emulator_host: str | None = None

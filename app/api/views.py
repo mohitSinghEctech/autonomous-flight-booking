@@ -32,8 +32,8 @@ def local_time(value) -> str | None:
 def booking_summary_view(booking: db.Booking) -> dict:
     """One row of the account bookings list (contract §16 BookingSummary)."""
     return {
-        "id": str(booking.id),                       # our id: used in the detail URL
-        "booking_id": booking.provider_booking_id,   # Duffel's order id
+        "id": str(booking.id),
+        "booking_id": booking.provider_booking_id,
         "booking_reference": booking.booking_reference,
         "lifecycle": BookingLifecycle[booking.status.name].value,
         "total_amount": float(booking.total_amount),
@@ -98,7 +98,7 @@ def booking_view(booking: db.Booking, passengers: list[db.Passenger]) -> dict:
         "total_amount": float(booking.total_amount),
         "currency": booking.currency,
         "payment_required_by": iso(booking.payment_required_by),
-        "flight_id": booking.flight_number,          # = provider offer id, matches the flight list
+        "flight_id": booking.flight_number,
         "passengers": [passenger_view(p) for p in passengers],
     }
     

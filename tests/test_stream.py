@@ -14,12 +14,11 @@ async def test_reconnect_gets_a_full_snapshot(session, server):
     approval = await session.until_approval()
     last = session.stream.last_id
 
-    # a new tab / a reconnect after a network drop
     async with EventStream(f"{server}/api/sessions/{session.thread_id}/stream", last_event_id=last) as again:
         snapshot = await again.wait_for("session.snapshot")
 
     state = snapshot["data"]
-    assert snapshot["id"] >= last                          # the browser resumes from here
+    assert snapshot["id"] >= last
     assert state["approval"]["approval_id"] == approval["approval_id"]
     assert len(state["flights"]) == 3
     assert state["selection"]["flight_id"] == approval["flight_id"]

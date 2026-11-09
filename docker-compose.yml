@@ -33,15 +33,39 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgresql+asyncpg://flight_user:flight_password@postgres:5432/flight_booking
-      # local: real token checks, but against the Firebase Auth EMULATOR (unsigned tokens)
       AUTH_MODE: firebase
       FIREBASE_PROJECT_ID: mks-agent-console
-      FIREBASE_AUTH_EMULATOR_HOST: host.docker.internal:9099
+      FIREBASE_AUTH_EMULATOR_HOST: web:9099
     ports:
       - "8000:8000"
     depends_on:
       migrate:
         condition: service_completed_successfully
+      web:
+        condition: service_started
+
+  web:
+    build: ./docker/web
+    image: flight-web
+    restart: unless-stopped
+    volumes:
+      - ../agent-console/public:/srv/public:ro
+    ports:
+      - "5055:5055"
+      - "9099:9099"
+      - "4055:4055"
+
+  seed-user:
+    image: alpine:3.20
+    volumes:
+      - ./docker/web/seed-user.sh:/seed-user.sh:ro
+    environment:
+      TEST_USER_EMAIL: demo@atlas.test
+      TEST_USER_PASSWORD: atlas-demo-123
+    command: ["/seed-user.sh"]
+    depends_on:
+      web:
+        condition: service_started
 
 volumes:
   postgres_data:

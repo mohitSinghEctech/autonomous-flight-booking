@@ -11,7 +11,6 @@ async def main():
         }
     }
 
-    # Turn 1: create a booking hold
     result = await graph.ainvoke(
         {
             "messages": [
@@ -48,7 +47,6 @@ async def main():
     print("\nBooking created:")
     print(result.get("booking"))
 
-    # Turn 2: create payment for the existing booking
     result = await graph.ainvoke(
         {
             "messages": [

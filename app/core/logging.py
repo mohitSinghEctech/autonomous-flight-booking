@@ -19,7 +19,6 @@ from datetime import datetime, timezone
 
 request_id_var: ContextVar[str | None] = ContextVar("request_id", default=None)
 
-# access_token=…  /  Bearer …  /  any bare JWT (three base64url parts, header starts with eyJ)
 _SECRETS = [
     (re.compile(r"(access_token=)[^&\s\"']+"), r"\1[REDACTED]"),
     (re.compile(r"(Bearer\s+)[A-Za-z0-9._~+/=-]+"), r"\1[REDACTED]"),
@@ -47,14 +46,12 @@ class JsonFormatter(logging.Formatter):
         if request_id:
             entry["request_id"] = request_id
 
-        # imported here: progress imports the API layer, which imports this module
         from app.api.progress import current_turn
         turn = current_turn()
         if turn is not None:
             entry["thread_id"] = turn.thread_id
             entry["turn_id"] = turn.turn_id
 
-        # logger.info("...", extra={"fields": {...}}) adds structured fields
         fields = getattr(record, "fields", None)
         if isinstance(fields, dict):
             entry.update(fields)
@@ -73,15 +70,12 @@ def setup_logging(level: str = "INFO") -> None:
     root.handlers = [handler]
     root.setLevel(level)
 
-    # uvicorn's own handlers would print a second, plain-text copy
     for name in ("uvicorn", "uvicorn.error"):
         logging.getLogger(name).handlers = []
         logging.getLogger(name).propagate = True
 
-    # the middleware writes the access log (without query strings), so silence uvicorn's
     logging.getLogger("uvicorn.access").disabled = True
 
-    # one line per outbound HTTP call is noise next to our own timed tool / LLM lines
     for name in ("httpx", "httpx2", "httpcore", "openai"):
         logging.getLogger(name).setLevel(max(logging.WARNING, root.level))
 

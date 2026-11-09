@@ -78,7 +78,6 @@ class SessionEventBus:
         history.append(event)
         del history[:-HISTORY_LIMIT]
 
-        # keep the snapshot projection in step with what browsers receive
         session_store.apply(thread_id, event.event, event.data)
 
         for queue in self._subscribers.get(thread_id, set()):

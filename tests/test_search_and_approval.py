@@ -18,14 +18,12 @@ async def test_snapshot_is_the_first_event(session):
 async def test_search_ends_in_an_approval(session, fakes):
     approval = await session.until_approval()
 
-    # the order a browser sees
     names = [e["event"] for e in session.stream.events[1:]]
     for expected in ["message", "turn.started", "status", "step", "flights.results",
                      "flights.selected", "approval.required", "turn.completed"]:
         assert expected in names, f"missing {expected} in {names}"
     assert names.index("flights.results") < names.index("approval.required")
 
-    # contract shape of the approval
     assert approval["kind"] == "book"
     assert approval["approval_id"].startswith("ap_")
     assert approval["flight_id"] == fakes.flights.cheapest.flight_id
@@ -33,12 +31,10 @@ async def test_search_ends_in_an_approval(session, fakes):
     assert approval["passengers"] == [{"id": approval["passengers"][0]["id"], "name": "Asha Rao"}]
     assert approval["flight"]["duration_minutes"] == 210
 
-    # paused, not busy: the chat is open again
     completed = session.stream.of("turn.completed")[-1]["data"]
     assert completed["outcome"] == "interrupted"
     await session.stream.wait_for("status", where=lambda s: s["stage"] == "awaiting_approval")
 
-    # nothing booked before a human said yes
     assert fakes.flights.booked == []
 
 

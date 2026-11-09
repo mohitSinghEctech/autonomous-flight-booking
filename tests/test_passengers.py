@@ -54,8 +54,8 @@ async def test_providing_details_saves_them_and_continues_to_approval(session, f
 
 
 @pytest.mark.parametrize("phone", [
-    "12345",              # wrong shape
-    "+447700900123",      # right shape, but a reserved range: no such number (Duffel rejects it)
+    "12345",
+    "+447700900123",
 ])
 async def test_invalid_passenger_details_are_422(session, fakes, phone):
     request = await ask_for_two(session)

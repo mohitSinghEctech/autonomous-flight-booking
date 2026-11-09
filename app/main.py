@@ -17,8 +17,6 @@ from app.core.settings import settings
 from app.db.session import DATABASE_URL
 
 
-# The hosted UI (Firebase) and the local emulator. Exact origins, never "*":
-# requests carry a bearer token.
 DEFAULT_ORIGINS = [
     "https://provenance.web.app",
     "https://mks-agent-console.web.app",
@@ -26,7 +24,6 @@ DEFAULT_ORIGINS = [
     "http://127.0.0.1:5055",
 ]
 
-# Settings the API cannot run without (environment variable names)
 REQUIRED = ["llm_api_key", "llm_model", "flight_vendor_token", "cashfree_app_id", "cashfree_api_key"]
 
 logger = logging.getLogger("app")
@@ -40,7 +37,6 @@ def check_config() -> None:
     if missing:
         raise RuntimeError(f"Missing required environment variables: {', '.join(missing)}")
 
-    # AUTH_MODE is already checked by Settings (only "firebase" or "demo" are accepted)
     if settings.auth_mode == "demo":
         logger.warning("AUTH_MODE=demo: no sign-in required, every caller is the demo user. Never use this in production.")
     if settings.firebase_auth_emulator_host:
@@ -93,7 +89,7 @@ def create_app() -> FastAPI:
             response.headers["X-Request-ID"] = request_id
             return response
         finally:
-            if request.url.path != "/api/health":        # the health check runs every 30 s
+            if request.url.path != "/api/health":
                 log_fields(
                     access, f"{request.method} {request.url.path} {status}",
                     method=request.method,

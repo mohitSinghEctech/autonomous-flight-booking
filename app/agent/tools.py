@@ -28,7 +28,6 @@ HANDLERS = {
     "complete_payment": handle_complete_payment,
 }
 
-# How each tool appears in the browser: (step kind, title, status stage, status text)
 TOOL_STEPS = {
     "search_flights": ("tool", "Searching flights", "searching", "Searching live flights…"),
     "get_saved_passengers": ("tool", "Loading your passengers", "loading_passengers", "Loading your saved passengers…"),
@@ -50,7 +49,6 @@ async def execute_tool(
     if handler is None:
         return ToolResult({"error": f"Unknown tool: {tool_name}"})
 
-    # Expected failures go back to the LLM as data so it can react.
     try:
         return await handler(tool_call, state)
 
@@ -86,7 +84,6 @@ async def execute_tools(state: AgentState):
             kind, title, tool=tool_name, stage=stage, status_text=status_text,
         )
 
-        # Later calls in the same turn see earlier calls' state changes
         started = time.monotonic()
         result = await execute_tool(tool_call, {**state, **updates})
         updates.update(result.update)

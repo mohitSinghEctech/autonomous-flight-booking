@@ -34,12 +34,8 @@ def libpq_url(url: str) -> str:
     return urlunsplit(("postgresql", parts.netloc, parts.path, urlencode(query), parts.fragment))
 
 
-# One place for the URL. Tests point DATABASE_URL at flight_booking_test.
 DATABASE_URL = asyncpg_url(settings.database_url)
 
-# Tests run each case on a fresh event loop; pooled asyncpg connections can't
-# cross loops, so they ask for no pooling. pool_pre_ping: hosted Postgres
-# (Neon) closes idle connections; check before reuse instead of failing a turn.
 engine = create_async_engine(
     DATABASE_URL,
     **({"poolclass": NullPool} if settings.db_null_pool else {"pool_pre_ping": True}),

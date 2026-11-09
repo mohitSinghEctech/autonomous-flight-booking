@@ -40,7 +40,7 @@ async def test_booking_detail_shows_passengers_and_payment(session, api):
     detail = response.json()
     assert detail["booking_reference"] == booking["booking_reference"]
     assert [p["given_name"] for p in detail["passengers"]] == ["Asha"]
-    assert detail["payment"] is None                       # not paid yet
+    assert detail["payment"] is None
 
 
 async def test_unknown_or_bad_booking_id_is_404(api, user):
@@ -54,7 +54,7 @@ async def test_someone_elses_booking_is_404(session, api, monkeypatch):
     await session.until_booked()
     booking_id = (await api.get("/api/bookings")).json()["items"][0]["id"]
 
-    monkeypatch.setattr(settings, "demo_user_id", str(uuid.uuid4()))     # now a different caller
+    monkeypatch.setattr(settings, "demo_user_id", str(uuid.uuid4()))
 
     response = await api.get(f"/api/bookings/{booking_id}")
     assert response.status_code == 404

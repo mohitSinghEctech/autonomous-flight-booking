@@ -40,7 +40,7 @@ def test_cashfree_webhook_signature(monkeypatch):
 
     assert provider.verify_webhook(raw, ts, good)
     assert not provider.verify_webhook(raw, ts, "forged")
-    assert not provider.verify_webhook(raw + b" ", ts, good)            # body tampered
+    assert not provider.verify_webhook(raw + b" ", ts, good)
 
 
 def test_parse_webhook_builds_a_stable_event_id():
@@ -56,10 +56,10 @@ def test_projection_follows_events_like_the_ui_reducer():
     apply_event(state, "message", {"id": "c1", "role": "user", "text": "hi"})
     apply_event(state, "turn.started", {"turn_id": "t1", "title": "hi"})
     apply_event(state, "step", {"id": "s1", "turn_id": "t1", "title": "Searching", "status": "running"})
-    apply_event(state, "step", {"id": "s1", "status": "done"})                       # partial update
+    apply_event(state, "step", {"id": "s1", "status": "done"})
     apply_event(state, "approval.required", {"approval_id": "a1", "kind": "book"})
     apply_event(state, "approval.resolved", {"approval_id": "other", "decision": "approved"})
-    assert state["approval"]["approval_id"] == "a1"                                  # only its own id clears it
+    assert state["approval"]["approval_id"] == "a1"
     apply_event(state, "approval.resolved", {"approval_id": "a1", "decision": "approved"})
 
     assert state["approval"] is None

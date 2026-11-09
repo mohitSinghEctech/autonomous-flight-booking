@@ -17,7 +17,6 @@ async def main():
         cabin=Cabin.ECONOMY,
     )
 
-    # Search for flights
     flights = await provider.search_flights(request)
 
     flight = flights[0]
@@ -25,7 +24,6 @@ async def main():
     print("\nSelected flight:")
     print(flight)
 
-    # Load saved passengers
     passengers = get_saved_passengers()
 
     print("\nPassengers:")
@@ -36,7 +34,6 @@ async def main():
             passenger.family_name,
         )
 
-    # Create booking request
     request = BookFlight(
         flight_id=flight.flight_id,
         passenger_ids=[

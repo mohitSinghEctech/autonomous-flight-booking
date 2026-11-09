@@ -28,7 +28,6 @@ class BookingService:
         flight_provider: FlightProvider | None = None,
     ):
         self.session = session
-        # looked up at call time, so tests can swap all_providers.flight_provider
         self.flight_provider = flight_provider or all_providers.flight_provider
 
         self.booking_repository = BookingRepository(session)
@@ -50,13 +49,11 @@ class BookingService:
         request: BookFlight,
     ) -> db.Booking:
 
-        # 1. Passengers must exist, belong to this user, and be complete
         passengers = await self._get_user_passengers(
             user_id,
             request.passenger_ids,
         )
 
-        # 2. Re-fetch the offer so we book the current price, not a stale one
         flight = await self.flight_provider.fetch_flight_details(
             request.flight_id
         )
@@ -64,14 +61,12 @@ class BookingService:
         if flight is None:
             raise FlightNotFound(f"Flight {request.flight_id} not found.")
 
-        # 3. Place the hold with the provider
         result = await self.flight_provider.book_flight(
             request,
             flight,
             passengers=passengers,
         )
 
-        # 4. Persist flight + booking in one transaction
         db_flight = await self._get_or_create_flight(flight)
 
         booking = await self.booking_repository.create_booking(

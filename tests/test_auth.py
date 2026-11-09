@@ -70,10 +70,10 @@ async def test_no_token_is_401(api, firebase):
 
 
 @pytest.mark.parametrize("bad", [
-    lambda uid: token(uid, key=OTHER_KEY),          # signed by someone else
-    lambda uid: token(uid, aud="another-project"),  # meant for another app
-    lambda uid: token(uid, expires_in=-60),         # expired
-    lambda uid: token(uid, kid="unknown"),          # key Google never published
+    lambda uid: token(uid, key=OTHER_KEY),
+    lambda uid: token(uid, aud="another-project"),
+    lambda uid: token(uid, expires_in=-60),
+    lambda uid: token(uid, kid="unknown"),
     lambda uid: "not-a-jwt",
 ])
 async def test_invalid_tokens_are_401(api, firebase, bad):
@@ -85,7 +85,7 @@ async def test_first_sign_in_creates_the_user_once(api, firebase):
     uid = uuid.uuid4().hex
 
     first = await api.post("/api/sessions", headers=bearer(token(uid)))
-    auth._user_ids.clear()                           # force the DB path again
+    auth._user_ids.clear()
     second = await api.post("/api/sessions", headers=bearer(token(uid)))
 
     assert first.status_code == second.status_code == 201

@@ -26,7 +26,6 @@ async def build_booking_approval(tool_call: dict, state: AgentState) -> dict:
     """
     request = parse_arguments(tool_call, BookFlight)
 
-    # live price: offers change, and we never book at a price the user didn't see
     flight = await all_providers.flight_provider.fetch_flight_details(request.flight_id)
 
     if flight is None:
@@ -47,7 +46,6 @@ async def build_booking_approval(tool_call: dict, state: AgentState) -> dict:
         "kind": kind,
         "flight_id": flight.flight_id,
         "flight": view,
-        # the airline's offer deadline: approving after it books nothing (routes.decide)
         "expires_at": view.get("expires_at"),
         "passengers": [passenger_view(p) for p in passengers],
         "total_amount": flight.price,

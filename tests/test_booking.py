@@ -18,14 +18,14 @@ async def test_approve_holds_the_seat_and_saves_it(session, fakes):
     booking = await session.until_booked()
 
     assert booking["lifecycle"] == "held"
-    assert booking["booking_id"].startswith("ord_fake_")          # provider id, not our uuid
+    assert booking["booking_id"].startswith("ord_fake_")
     assert booking["flight_id"] == fakes.flights.cheapest.flight_id
     assert booking["passengers"][0]["name"] == "Asha Rao"
     assert fakes.flights.booked == [fakes.flights.cheapest.flight_id]
 
     row = await db_booking(booking["booking_id"])
     assert row.status == BookingStatus.HELD
-    assert str(row.id) != booking["booking_id"]                    # the two ids never mix
+    assert str(row.id) != booking["booking_id"]
 
     resolved = session.stream.of("approval.resolved")[-1]["data"]
     assert resolved["decision"] == "approved"
@@ -47,15 +47,15 @@ async def test_double_click_approve_books_once(session, fakes):
     approval = await session.until_approval()
 
     first = await session.approve(approval["approval_id"])
-    second = await session.approve(approval["approval_id"])          # same answer again
+    second = await session.approve(approval["approval_id"])
 
     assert first.status_code == 202
-    assert second.status_code in (202, 409)                          # 409 only while the first still runs
+    assert second.status_code in (202, 409)
     await session.stream.wait_for("booking.updated", where=lambda b: b and b["lifecycle"] == "held")
     await session.stream.wait_for("turn.completed", where=lambda t: t["outcome"] == "completed")
 
     again = await session.approve(approval["approval_id"])
-    assert again.status_code == 202                                   # idempotent after it finished
+    assert again.status_code == 202
     assert len(fakes.flights.booked) == 1
 
 
@@ -78,7 +78,7 @@ async def test_new_message_supersedes_a_pending_approval(session, fakes):
     approval = await session.until_approval()
     start = session.stream.last_id
 
-    assert (await session.say("hello again")).status_code == 202      # waiting is not busy
+    assert (await session.say("hello again")).status_code == 202
     await session.turn_done(after=start)
 
     resolved = await session.stream.wait_for("approval.resolved", after=start)
@@ -133,7 +133,7 @@ async def test_cancel_booking_needs_approval(session, fakes):
     assert (await session.api.post(session.url("/booking/cancel"))).status_code == 202
     approval = (await session.stream.wait_for("approval.required", after=start))["data"]
     assert approval["kind"] == "cancel"
-    assert fakes.flights.cancelled == []                              # nothing until the user says yes
+    assert fakes.flights.cancelled == []
     await session.turn_done(after=start)
 
     start = session.stream.last_id
@@ -144,12 +144,11 @@ async def test_cancel_booking_needs_approval(session, fakes):
     assert fakes.flights.cancelled == [booking["booking_id"]]
     assert (await db_booking(booking["booking_id"])).status == BookingStatus.CANCELLED
 
-    # the AGENT must know too, or its next answer says "you're already booked"
     await session.turn_done(after=start)
     values = await runner.agent_values(session.thread_id)
     assert values["booking"]["lifecycle"] == "cancelled"
     assert values["db_booking_id"] is None
-    assert "CANCELLED" in values["messages"][-1]["content"]          # the history says so too
+    assert "CANCELLED" in values["messages"][-1]["content"]
 
 
 async def test_cancel_without_booking_is_409(session):
@@ -171,7 +170,7 @@ async def test_busy_conversation_rejects_new_work(session):
 async def test_same_client_id_runs_once(session, fakes):
     client_id = uuid.uuid4().hex
     first = await session.say("hello", client_id=client_id)
-    second = await session.say("hello", client_id=client_id)           # network retry
+    second = await session.say("hello", client_id=client_id)
 
     assert first.status_code == second.status_code == 202
     assert first.json()["turn_id"] == second.json()["turn_id"]
@@ -200,4 +199,4 @@ async def test_a_fare_the_airline_refused_is_never_offered_for_approval_again(se
     await session.turn_done(after=start)
 
     assert not [e for e in session.stream.of("approval.required") if e["id"] > start]
-    assert fakes.flights.attempts == [dead]                       # the airline was asked once
+    assert fakes.flights.attempts == [dead]

@@ -51,16 +51,12 @@ class Session:
     user_id: str
     state: dict[str, Any] = field(default_factory=empty_state)
 
-    # client_id -> turn_id: a retried POST /messages returns the same turn
     seen_client_ids: dict[str, str] = field(default_factory=dict)
 
-    # approval_id / request_id -> decision: a double click gets the same answer
     resolved: dict[str, str] = field(default_factory=dict)
 
-    # "graph" = a LangGraph interrupt (book/change/passengers), "cancel" = app-level
     pending_kind: str | None = None
 
-    # the "Waiting for your approval" step, finished when the user answers
     waiting_step_id: str | None = None
 
     turn_counter: int = 0
@@ -85,7 +81,6 @@ class SessionStore:
     def __init__(self):
         self._sessions: dict[str, Session] = {}
 
-        # Cashfree order id -> thread_id, so a webhook knows whose stream to update
         self.order_threads: dict[str, str] = {}
 
         self._saving: set[asyncio.Task] = set()
@@ -124,12 +119,11 @@ class SessionStore:
             turn_counter=meta.get("turn_counter", 0),
         )
 
-        # a turn that was running when the process stopped is not running any more
         session.state["status"] = {"busy": False, "stage": "idle", "text": "Standing by"}
         if session.state["approval"] or session.state["passenger_request"]:
             session.state["status"] = {"busy": False, "stage": "awaiting_approval", "text": "Waiting for you"}
 
-        from app.api.event_bus import event_bus      # event_bus imports this module
+        from app.api.event_bus import event_bus
         event_bus.restore_counter(thread_id, meta.get("last_event_id", 0))
 
         self._sessions.setdefault(thread_id, session)
@@ -146,7 +140,7 @@ class SessionStore:
             )
         thread_id = result.scalar_one_or_none()
         if thread_id:
-            await self.load(thread_id)        # so the projection exists for publish()
+            await self.load(thread_id)
         return thread_id
 
     def save_soon(self, session: Session) -> None:
@@ -191,8 +185,6 @@ class SessionStore:
         if session is not None:
             apply_event(session.state, event, data)
 
-
-# ---- the projection (mirrors the UI reducer) ------------------------------------
 
 def apply_event(state: dict[str, Any], event: str, data: Any) -> None:
 

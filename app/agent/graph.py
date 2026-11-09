@@ -21,11 +21,9 @@ def route_after_llm(state: AgentState):
     tool_calls = last_message.get("tool_calls") or []
     names = {tool_call["function"]["name"] for tool_call in tool_calls}
 
-    # missing passengers first: there is nothing to approve without them
     if PASSENGER_TOOL in names:
         return "passengers"
 
-    # book_flight never runs before a human says yes
     if "book_flight" in names:
         return "approval"
 
@@ -43,11 +41,9 @@ def route_after_approval(state: AgentState):
     if last["role"] == "tool":
         return "llm"
 
-    # approved: the last message is still the assistant's tool call -> run it
     if last.get("tool_calls"):
         return "tools"
 
-    # superseded: approval_node closed it with a plain assistant line
     return END
 
 
@@ -126,7 +122,6 @@ def build_graph(checkpointer=None):
     )
 
 
-# In memory until the API starts: tests and `python -m app.graph` use this one.
 graph = build_graph()
 
 
@@ -141,7 +136,6 @@ async def postgres_checkpointer(database_url: str):
     """
     global graph
 
-    # LangGraph's saver speaks psycopg, not asyncpg: same database, plain URL
     conninfo = libpq_url(database_url)
 
     async with AsyncConnectionPool(
@@ -152,7 +146,7 @@ async def postgres_checkpointer(database_url: str):
         kwargs={"autocommit": True, "prepare_threshold": 0, "row_factory": dict_row},
     ) as pool:
         saver = AsyncPostgresSaver(pool)
-        await saver.setup()            # creates / migrates LangGraph's own tables
+        await saver.setup()
 
         previous, graph = graph, build_graph(saver)
         try:

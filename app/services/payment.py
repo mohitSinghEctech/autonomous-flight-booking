@@ -23,11 +23,10 @@ PAYMENT_PROVIDER_NAME = "cashfree"
 
 OPEN_STATUSES = {PaymentStatus.CREATED, PaymentStatus.PENDING}
 
-# Which payment status may move to which. PAID is terminal: nothing moves it back.
 ALLOWED = {
     PaymentStatus.CREATED: {PaymentStatus.PENDING, PaymentStatus.PAID, PaymentStatus.FAILED, PaymentStatus.EXPIRED},
     PaymentStatus.PENDING: {PaymentStatus.PAID, PaymentStatus.FAILED, PaymentStatus.EXPIRED},
-    PaymentStatus.FAILED: {PaymentStatus.PAID},      # a late success still wins
+    PaymentStatus.FAILED: {PaymentStatus.PAID},
     PaymentStatus.EXPIRED: {PaymentStatus.PAID},
     PaymentStatus.PAID: set(),
 }
@@ -52,14 +51,12 @@ class PaymentService:
         flight_provider: FlightProvider | None = None,
     ):
         self.session = session
-        # looked up at call time, so tests can swap all_providers.payment_provider
         self.payment_provider = payment_provider or all_providers.payment_provider
         self.flight_provider = flight_provider or all_providers.flight_provider
 
         self.payment_repository = PaymentRepository(session)
         self.booking_repository = BookingRepository(session)
 
-    # ---- create -------------------------------------------------------------
 
     async def create_payment(
         self,
@@ -74,15 +71,12 @@ class PaymentService:
 
         payment = await self.payment_repository.get_latest_for_booking(booking.id)
 
-        # 1. Idempotent: an open payment is the answer, not a new one.
         if payment is not None and payment.status in OPEN_STATUSES:
             return payment, booking
 
         if payment is not None and payment.status == PaymentStatus.PAID:
             raise BookingNotPayable("This booking is already paid.")
 
-        # 2. First attempt: order id = booking id. Retry: provider order ids must be
-        #    unique, so add a short suffix.
         order_id = str(booking.id) if payment is None else f"{booking.id}-{secrets.token_hex(3)}"
 
         result = await self.payment_provider.create_payment(
@@ -119,7 +113,6 @@ class PaymentService:
 
         return payment, booking
 
-    # ---- read the provider (fallback when no webhook arrives) ----------------
 
     async def sync_payment(
         self,
@@ -147,12 +140,10 @@ class PaymentService:
 
         return payment, booking, changed
 
-    # kept for the LLM tool `complete_payment`
     async def complete_payment(self, user_id: uuid.UUID, booking_id: uuid.UUID) -> tuple[Payment, Booking]:
         payment, booking, _ = await self.sync_payment(user_id, booking_id)
         return payment, booking
 
-    # ---- the ONE place a provider result is applied ---------------------------
 
     async def apply_provider_status(
         self,
@@ -193,7 +184,6 @@ class PaymentService:
                     raw_payload=raw_payload or {},
                 )
             except IntegrityError:
-                # the same webhook raced in on another request: it was handled there
                 await self.session.rollback()
                 payment = await self.payment_repository.get_by_provider_payment_id(PAYMENT_PROVIDER_NAME, provider_payment_id)
                 booking = await self.booking_repository.get_booking(payment.booking_id)
