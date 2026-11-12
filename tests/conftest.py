@@ -92,7 +92,7 @@ async def user(monkeypatch):
 
         session.add(Passenger(
             user_id=account.id, given_name="Asha", family_name="Rao", title="ms", gender="f",
-            born_on=date(1992, 4, 2), email="asha@example.com", phone_number="+919800000001",
+            born_on=date(1992, 4, 2), email="asha@example.com", phone_number="+12015550123",
         ))
         await session.commit()
 
