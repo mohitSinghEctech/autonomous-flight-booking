@@ -11,8 +11,8 @@ async def main():
         repository = UserRepository(session)
 
         user = await repository.create_user(
-            given_name="Mohit",
-            family_name="Singh",
+            given_name="Test",
+            family_name="Traveller",
         )
 
         print("Created:")
