@@ -13,14 +13,14 @@ async def main():
         passenger_repository = PassengerRepository(session)
 
         user = await user_repository.create_user(
-            given_name="Mohit",
-            family_name="Singh",
+            given_name="Test",
+            family_name="Traveller",
         )
 
         passenger = await passenger_repository.create_passenger(
             user_id=user.id,
-            given_name="Mohit Kumar",
-            family_name="Singh",
+            given_name="Test Second",
+            family_name="Traveller",
         )
 
         print("Created passenger:")

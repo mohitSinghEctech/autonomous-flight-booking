@@ -8,7 +8,7 @@ from app.db.session import SessionLocal
 
 NEW_PASSENGER = {
     "title": "mr", "given_name": "Ravi", "family_name": "Kumar", "gender": "m",
-    "born_on": "1990-01-15", "email": "ravi@example.com", "phone_number": "+919800000002",
+    "born_on": "1990-01-15", "email": "ravi@example.com", "phone_number": "+12015550124",
 }
 
 
