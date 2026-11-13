@@ -20,7 +20,7 @@ from app.api import events as contract
 from app.api import progress
 from app.api.errors import to_error_code
 from app.api.sessions import Session, session_store
-from app.api.views import booking_view, flight_from_booking, payment_view
+from app.api.views import booking_view, flight_from_booking, passenger_view, payment_view
 from app.core.errors import NoActiveBooking
 from app.core.logging import log_fields
 from app.db.models import BookingStatus, PaymentStatus
@@ -362,7 +362,7 @@ async def request_cancellation(session: Session) -> None:
             "kind": "cancel",
             "flight_id": flight["flight_id"],
             "flight": flight,
-            "passengers": [{"id": str(p.id), "name": f"{p.given_name} {p.family_name}"} for p in passengers],
+            "passengers": [passenger_view(p) for p in passengers],
             "total_amount": float(booking.total_amount),
             "currency": booking.currency,
             "message": f"Cancel booking {booking.booking_reference}? The seat will be released.",

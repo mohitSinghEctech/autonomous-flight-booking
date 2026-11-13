@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import AppError, FlightNotFound, PassengerNotFound
+from app.core.errors import AppError, FlightNotFound, PassengerInUse, PassengerNotFound
 from app.db import models as db
 from app.db.repositories.bookings import BookingRepository
 from app.db.repositories.flights import FlightRepository
@@ -43,6 +43,74 @@ class BookingService:
             user_id
         )
 
+    async def get_passenger(
+        self,
+        user_id: uuid.UUID,
+        passenger_id: uuid.UUID,
+    ) -> db.Passenger:
+        """The user's saved passenger. Someone else's looks exactly like a missing one."""
+
+        passenger = await self.passenger_repository.get_user_passenger(
+            user_id,
+            passenger_id,
+        )
+
+        if passenger is None:
+            raise PassengerNotFound("Passenger not found.")
+
+        return passenger
+
+    async def create_passenger(
+        self,
+        user_id: uuid.UUID,
+        passenger: dict,
+    ) -> db.Passenger:
+
+        [created] = await self.add_passengers(user_id, [passenger])
+
+        return created
+
+    async def update_passenger(
+        self,
+        user_id: uuid.UUID,
+        passenger_id: uuid.UUID,
+        changes: dict,
+    ) -> db.Passenger:
+        """Edit a saved passenger. Existing bookings keep the details they were booked with."""
+
+        passenger = await self.get_passenger(user_id, passenger_id)
+
+        if changes:
+            await self.passenger_repository.update_passenger(passenger, changes)
+            await self.session.commit()
+
+        return passenger
+
+    async def delete_passenger(
+        self,
+        user_id: uuid.UUID,
+        passenger_id: uuid.UUID,
+    ) -> None:
+        """
+        Delete a saved passenger. Existing bookings keep the details they were booked with.
+
+        Refused while the passenger is on a booking that is awaiting payment with a
+        deadline still ahead. Held, confirmed, cancelled bookings, a passed deadline
+        or no deadline at all don't block. Ownership is checked first, so someone
+        else's passenger is always "not found", never "in use".
+        """
+
+        passenger = await self.get_passenger(user_id, passenger_id)
+
+        open_booking = await self.booking_repository.find_open_payment_booking_for_passenger(passenger.id)
+
+        if open_booking is not None:
+            raise PassengerInUse(open_booking.booking_reference, open_booking.payment_required_by)
+
+        await self.passenger_repository.delete_passenger(passenger)
+
+        await self.session.commit()
+
     async def book_flight(
         self,
         user_id: uuid.UUID,
@@ -76,7 +144,7 @@ class BookingService:
             provider_booking_id=result.booking_id,
             total_amount=Decimal(str(result.total_amount)),
             currency=result.currency,
-            passenger_ids=[uuid.UUID(p.id) for p in passengers],
+            passengers=passengers,
             status=db.BookingStatus.HELD,
             payment_required_by=result.payment_required_by,
         )
@@ -133,11 +201,10 @@ class BookingService:
     async def booking_passengers(
         self,
         booking: db.Booking,
-    ) -> list[db.Passenger]:
+    ) -> list[db.BookingPassenger]:
+        """The travellers as booked, not the (possibly edited or deleted) saved passengers."""
 
-        ids = [link.passenger_id for link in booking.booking_passengers]
-
-        return await self.passenger_repository.get_passengers_by_ids(ids) if ids else []
+        return await self.booking_repository.get_booking_passengers(booking.id)
 
     async def get_booking(
         self,

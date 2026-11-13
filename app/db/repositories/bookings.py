@@ -2,7 +2,7 @@ import uuid
 from decimal import Decimal
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -12,6 +12,7 @@ from app.db.models import (
     BookingStatus,
     Flight,
 )
+from app.models import Passenger
 
 
 class BookingRepository:
@@ -85,7 +86,7 @@ class BookingRepository:
         provider_booking_id: str,
         total_amount: Decimal,
         currency: str,
-        passenger_ids: list[uuid.UUID],
+        passengers: list[Passenger],
         status: BookingStatus,
         payment_required_by: datetime | None = None,
     ) -> Booking:
@@ -113,21 +114,67 @@ class BookingRepository:
             arrival_at=flight.arrival_datetime,
 
             cabin=flight.cabin,
+
+            # The travellers exactly as sent to the airline. Later edits or
+            # deletes of the saved passengers don't touch these rows.
+            booking_passengers=[
+                BookingPassenger(
+                    passenger_id=uuid.UUID(passenger.id),
+                    title=passenger.title,
+                    given_name=passenger.given_name,
+                    family_name=passenger.family_name,
+                    gender=passenger.gender,
+                    born_on=passenger.born_on,
+                    email=passenger.email,
+                    phone_number=passenger.phone_number,
+                )
+                for passenger in passengers
+            ],
         )
 
         self.session.add(booking)
 
         await self.session.flush()
 
-        for passenger_id in passenger_ids:
-            booking_passenger = BookingPassenger(
-                booking_id=booking.id,
-                passenger_id=passenger_id,
-            )
-
-            self.session.add(booking_passenger)
-
         return booking
+
+    async def get_booking_passengers(
+        self,
+        booking_id: uuid.UUID,
+    ) -> list[BookingPassenger]:
+        """The travellers on a booking, as they were booked."""
+
+        result = await self.session.execute(
+            select(BookingPassenger)
+            .where(BookingPassenger.booking_id == booking_id)
+            .order_by(BookingPassenger.given_name, BookingPassenger.family_name, BookingPassenger.id)
+        )
+
+        return list(result.scalars().all())
+
+    async def find_open_payment_booking_for_passenger(
+        self,
+        passenger_id: uuid.UUID,
+    ) -> Booking | None:
+        """
+        A booking with this saved passenger that is awaiting payment and whose
+        payment deadline is still ahead (database clock). No deadline -> not open.
+        With several, the one with the latest deadline: that's when the last one ends.
+        """
+        result = await self.session.execute(
+            select(Booking)
+            .join(BookingPassenger, BookingPassenger.booking_id == Booking.id)
+            .where(
+                BookingPassenger.passenger_id == passenger_id,
+                Booking.status == BookingStatus.AWAITING_PAYMENT,
+                Booking.payment_required_by.is_not(None),
+                Booking.payment_required_by > func.now(),
+            )
+            .order_by(Booking.payment_required_by.desc())
+            .limit(1)
+        )
+
+        return result.scalar_one_or_none()
 
     async def update_status(
         self,
