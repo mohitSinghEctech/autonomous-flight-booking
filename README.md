@@ -36,7 +36,7 @@ docker compose down               # stop (data kept in the postgres_data volume)
 docker compose up -d postgres
 uv run alembic upgrade head
 uv run uvicorn app.main:app --reload --port 8000
-uv run pytest -q                  # 114 integration tests (need postgres up)
+uv run pytest -q                  # 135 integration tests (need postgres up)
 ```
 
 ## Deploy: database migrations
