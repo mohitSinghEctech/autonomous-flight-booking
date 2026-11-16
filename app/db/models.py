@@ -123,8 +123,11 @@ class Passenger(Base):
         back_populates="passengers"
     )
 
+    # Deleting a saved passenger only unlinks past bookings (ON DELETE SET NULL);
+    # the bookings keep their own copy of the traveller's details.
     booking_passengers: Mapped[list["BookingPassenger"]] = relationship(
-        back_populates="passenger"
+        back_populates="passenger",
+        passive_deletes=True,
     )
 
 
@@ -419,9 +422,11 @@ class BookingPassenger(Base):
         default=uuid.uuid4,
     )
 
-    passenger_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("passengers.id"),
-        nullable=False,
+    # The saved passenger this traveller was booked from. NULL once that saved
+    # passenger is deleted; the booking itself is unaffected.
+    passenger_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("passengers.id", ondelete="SET NULL"),
+        nullable=True,
     )
 
     booking_id: Mapped[uuid.UUID] = mapped_column(
@@ -429,11 +434,49 @@ class BookingPassenger(Base):
         nullable=False,
     )
 
+    # Snapshot of the traveller exactly as sent to the airline. Written once at
+    # booking time and never updated: editing a saved passenger must not
+    # rewrite history.
+    title: Mapped[str | None] = mapped_column(
+        String(10),
+        nullable=True,
+    )
+
+    given_name: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+    )
+
+    family_name: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+    )
+
+    gender: Mapped[str | None] = mapped_column(
+        String(10),
+        nullable=True,
+    )
+
+    born_on: Mapped[date | None] = mapped_column(
+        Date,
+        nullable=True,
+    )
+
+    email: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
+    phone_number: Mapped[str | None] = mapped_column(
+        String(30),
+        nullable=True,
+    )
+
     booking: Mapped["Booking"] = relationship(
         back_populates="booking_passengers"
     )
 
-    passenger: Mapped["Passenger"] = relationship(
+    passenger: Mapped["Passenger | None"] = relationship(
         back_populates="booking_passengers"
     )
 

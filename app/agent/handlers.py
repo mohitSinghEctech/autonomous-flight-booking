@@ -124,9 +124,7 @@ async def handle_book_flight(tool_call: dict, state: dict) -> ToolResult:
 
         db_booking = await service.book_flight(user_id, request)
 
-        passengers = await service.passenger_repository.get_passengers_by_ids(
-            [uuid.UUID(pid) for pid in request.passenger_ids]
-        )
+        passengers = await service.booking_passengers(db_booking)
 
     booking = to_booking_state(db_booking)
 
