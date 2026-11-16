@@ -43,8 +43,33 @@ def booking_summary_view(booking: db.Booking) -> dict:
         "flight": flight_from_booking(booking),
     }
 
-def passenger_view(passenger: db.Passenger) -> dict:
-    return {"id": str(passenger.id), "name": f"{passenger.given_name} {passenger.family_name}"}
+def passenger_id(passenger: db.Passenger | db.BookingPassenger) -> str:
+    """
+    A booked traveller is shown with the id of the saved passenger it came from,
+    as before. Once that saved passenger is deleted, the booking row's own id
+    stands in, so the UI still gets a stable, unique id.
+    """
+    if isinstance(passenger, db.BookingPassenger):
+        return str(passenger.passenger_id or passenger.id)
+    return str(passenger.id)
+
+
+def passenger_view(passenger: db.Passenger | db.BookingPassenger) -> dict:
+    return {"id": passenger_id(passenger), "name": f"{passenger.given_name} {passenger.family_name}"}
+
+
+def saved_passenger_view(passenger: db.Passenger) -> dict:
+    """A saved passenger with all its details (account passengers endpoints)."""
+    return {
+        "id": str(passenger.id),
+        "title": passenger.title,
+        "given_name": passenger.given_name,
+        "family_name": passenger.family_name,
+        "gender": passenger.gender,
+        "born_on": iso(passenger.born_on),
+        "email": passenger.email,
+        "phone_number": passenger.phone_number,
+    }
 
 
 def flight_view(flight: Flight | dict) -> dict:
@@ -90,7 +115,7 @@ def flight_from_booking(booking: db.Booking) -> dict:
     }
 
 
-def booking_view(booking: db.Booking, passengers: list[db.Passenger]) -> dict:
+def booking_view(booking: db.Booking, passengers: list[db.BookingPassenger]) -> dict:
     return {
         "booking_id": booking.provider_booking_id,
         "booking_reference": booking.booking_reference,
@@ -102,14 +127,14 @@ def booking_view(booking: db.Booking, passengers: list[db.Passenger]) -> dict:
         "passengers": [passenger_view(p) for p in passengers],
     }
     
-def booking_detail_view(booking: db.Booking, passengers: list[db.Passenger]) -> dict:
+def booking_detail_view(booking: db.Booking, passengers: list[db.BookingPassenger]) -> dict:
     """One booking with its passengers and latest payment (contract §16 BookingDetail)."""
     latest = max(booking.payments, key=lambda p: p.created_at, default=None)
 
     return {
         **booking_summary_view(booking),
         "passengers": [
-            {"id": str(p.id), "given_name": p.given_name, "family_name": p.family_name}
+            {"id": passenger_id(p), "given_name": p.given_name, "family_name": p.family_name}
             for p in passengers
         ],
         "payment": None if latest is None else {

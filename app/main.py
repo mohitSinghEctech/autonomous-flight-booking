@@ -7,6 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.agent import graph as agent_graph
+from app.agent import handlers
 from app.api.errors import install_error_handlers
 from app.api.events import CONTRACT_VERSION
 from app.api.routes import router, webhooks
@@ -47,10 +48,23 @@ def check_config() -> None:
 async def lifespan(app: FastAPI):
     check_config()
 
-    async with agent_graph.postgres_checkpointer(DATABASE_URL):
-        log_fields(logger, "api started", contract_version=CONTRACT_VERSION, auth_mode=settings.auth_mode)
-        yield
-        await session_store.flush()
+    # One MCP subprocess for the whole app. Never blocks startup: if it is down,
+    # only flight search fails (as a tool error); bookings, profile and payments don't use it.
+    mcp_client = handlers.flight_mcp_client
+    await mcp_client.start()
+
+    try:
+        async with agent_graph.postgres_checkpointer(DATABASE_URL):
+            log_fields(
+                logger, "api started",
+                contract_version=CONTRACT_VERSION,
+                auth_mode=settings.auth_mode,
+                flight_mcp="connected" if mcp_client.connected else "unavailable",
+            )
+            yield
+            await session_store.flush()
+    finally:
+        await mcp_client.stop()
 
     logger.info("api stopped")
 
@@ -67,7 +81,7 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=DEFAULT_ORIGINS + settings.cors_origin_list,
-        allow_methods=["GET", "POST"],
+        allow_methods=["GET", "POST", "PATCH", "DELETE"],
         allow_headers=["Authorization", "Content-Type", "X-Contract-Version", "Last-Event-ID", "X-Request-ID"],
         expose_headers=["X-Request-ID"],
     )
