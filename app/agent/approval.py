@@ -33,7 +33,8 @@ async def build_booking_approval(tool_call: dict, state: AgentState) -> dict:
 
     async with SessionLocal() as session:
         passengers = await BookingService(session).passenger_repository.get_passengers_by_ids(
-            [uuid.UUID(pid) for pid in request.passenger_ids]
+            [uuid.UUID(pid) for pid in request.passenger_ids],
+            user_id=uuid.UUID(state["user_id"]),
         )
 
     held = (state.get("booking") or {}).get("lifecycle") in ("held", "awaiting_payment")

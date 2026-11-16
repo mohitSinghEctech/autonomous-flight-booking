@@ -25,6 +25,18 @@ class InvalidUpstreamResponse(AppError):
 class PassengerNotFound(AppError):
     pass
 
+class PassengerInUse(AppError):
+    """The saved passenger is on a booking whose payment is still open."""
+
+    def __init__(self, booking_reference: str, payment_required_by):
+        self.booking_reference = booking_reference
+        self.payment_required_by = payment_required_by
+        super().__init__(
+            f"This passenger is on booking {booking_reference}, which is awaiting payment "
+            f"until {payment_required_by.isoformat()}. Finish or cancel that payment first, "
+            "or try again after the deadline."
+        )
+
 class BookingNotPayable(AppError):
     pass
 

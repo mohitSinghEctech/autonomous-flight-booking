@@ -137,8 +137,16 @@ def sign_webhook(raw_body: bytes, timestamp: str, secret: str = WEBHOOK_SECRET) 
 class FakeMCPClient:
     """handlers.py searches through MCP; this answers with the fake offers."""
 
+    connected = True
+
     def __init__(self, flights: FakeFlightProvider):
         self.flights = flights
+
+    async def start(self):
+        pass
+
+    async def stop(self):
+        pass
 
     async def search_flights(self, **kwargs):
         return json.dumps([f.model_dump(mode="json") for f in self.flights.offers.values()])
@@ -200,6 +208,8 @@ def decide(messages: list[dict]) -> dict:
     content = json.loads(last["content"])
 
     if name == "search_flights":
+        if isinstance(content, dict) and "error" in content:
+            return {"content": f"Sorry, I couldn't search flights: {content['error']}"}
         return call("get_saved_passengers")
 
     if name in ("get_saved_passengers", "request_passenger_details"):

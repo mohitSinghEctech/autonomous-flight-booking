@@ -17,7 +17,7 @@ from datetime import date
 from typing import Any, Literal
 
 import phonenumbers
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 CONTRACT_VERSION = "1.1"
@@ -53,7 +53,7 @@ PaymentState = Literal["created", "pending", "paid", "failed", "expired"]
 ErrorCode = Literal[
     "validation_error", "unauthenticated", "forbidden", "session_not_found",
     "turn_in_progress", "approval_not_pending", "approval_already_resolved",
-    "flight_not_found", "booking_not_found", "no_active_booking", "booking_not_payable", "payment_not_found",
+    "flight_not_found", "booking_not_found", "passenger_not_found", "passenger_in_use", "no_active_booking", "booking_not_payable", "payment_not_found",
     "provider_unavailable", "provider_error", "rate_limited", "contract_mismatch", "internal_error",
 ]
 
@@ -225,28 +225,72 @@ class FlightSelectionIn(BaseModel):
 
 PASSENGER_FIELDS = ["title", "given_name", "family_name", "gender", "born_on", "email", "phone_number"]
 
+# One set of passenger rules, shared by the chat form (NewPassenger) and the
+# account endpoints (NewPassenger to create, PassengerUpdate to edit).
+Title = Literal["mr", "ms", "mrs", "miss", "dr"]
+Gender = Literal["m", "f"]
+EMAIL_PATTERN = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
+PHONE_PATTERN = r"^\+[1-9]\d{7,14}$"
+
+
+def check_real_phone_number(value: str) -> str:
+    """The pattern only checks the shape. Airlines (via Duffel) reject numbers that can't
+    exist, e.g. reserved ranges — catch that here, before the user approves anything."""
+    try:
+        number = phonenumbers.parse(value, None)
+    except phonenumbers.NumberParseException as exc:
+        raise ValueError("Enter a valid phone number with country code.") from exc
+    if not phonenumbers.is_valid_number(number):
+        raise ValueError("This phone number doesn't exist. Check it, including the country code.")
+    return value
+
 
 class NewPassenger(BaseModel):
-    title: Literal["mr", "ms", "mrs", "miss", "dr"]
+    title: Title
     given_name: str = Field(min_length=1, max_length=100)
     family_name: str = Field(min_length=1, max_length=100)
-    gender: Literal["m", "f"]
+    gender: Gender
     born_on: date
-    email: str = Field(pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$", max_length=255)
-    phone_number: str = Field(pattern=r"^\+[1-9]\d{7,14}$")
+    email: str = Field(pattern=EMAIL_PATTERN, max_length=255)
+    phone_number: str = Field(pattern=PHONE_PATTERN)
 
     @field_validator("phone_number")
     @classmethod
     def real_phone_number(cls, value: str) -> str:
-        """The pattern only checks the shape. Airlines (via Duffel) reject numbers that can't
-        exist, e.g. reserved ranges — catch that here, before the user approves anything."""
-        try:
-            number = phonenumbers.parse(value, None)
-        except phonenumbers.NumberParseException as exc:
-            raise ValueError("Enter a valid phone number with country code.") from exc
-        if not phonenumbers.is_valid_number(number):
-            raise ValueError("This phone number doesn't exist. Check it, including the country code.")
+        return check_real_phone_number(value)
+
+
+class PassengerUpdate(BaseModel):
+    """
+    Edit a saved passenger: send only the fields that change, same rules as NewPassenger.
+    A saved passenger must stay bookable, so null is not accepted, and unknown
+    fields are rejected rather than silently ignored.
+    """
+    model_config = ConfigDict(extra="forbid")
+
+    title: Title | None = None
+    given_name: str | None = Field(default=None, min_length=1, max_length=100)
+    family_name: str | None = Field(default=None, min_length=1, max_length=100)
+    gender: Gender | None = None
+    born_on: date | None = None
+    email: str | None = Field(default=None, pattern=EMAIL_PATTERN, max_length=255)
+    phone_number: str | None = Field(default=None, pattern=PHONE_PATTERN)
+
+    @field_validator("*", mode="before")
+    @classmethod
+    def no_nulls(cls, value):
+        # Only runs for fields that were sent, so "absent" stays allowed.
+        if value is None:
+            raise ValueError("may not be null")
         return value
+
+    @field_validator("phone_number")
+    @classmethod
+    def real_phone_number(cls, value: str) -> str:
+        return check_real_phone_number(value)
+
+    def changes(self) -> dict:
+        return self.model_dump(exclude_unset=True)
 
 
 class PassengersIn(BaseModel):
