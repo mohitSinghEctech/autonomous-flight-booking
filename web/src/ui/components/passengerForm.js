@@ -181,7 +181,7 @@ export function passengerFields(values = {}) {
     field('Date of birth', h('input', { name: 'born_on', type: 'date', required: true, max: new Date().toISOString().slice(0, 10), value: v('born_on') })),
     field('Email', h('input', { name: 'email', type: 'email', required: true, autocomplete: 'email', value: v('email') })),
     field('Phone (with country code)', h('input', {
-      name: 'phone_number', type: 'tel', required: true, placeholder: '+91 98000 00000', autocomplete: 'tel', value: v('phone_number'),
+      name: 'phone_number', type: 'tel', required: true, placeholder: '+1 201 555 0123', autocomplete: 'tel', value: v('phone_number'),
     })),
   );
 }
@@ -216,7 +216,7 @@ export function validatePassengers(passengers) {
     if (!p.given_name || !p.family_name) return `${who}first and last name are required.`;
     if (!p.born_on) return `${who}date of birth is required.`;
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(p.email)) return `${who}enter a valid email.`;
-    if (!/^\+[1-9]\d{7,14}$/.test(p.phone_number)) return `${who}phone must start with + and the country code, e.g. +919800000000.`;
+    if (!/^\+[1-9]\d{7,14}$/.test(p.phone_number)) return `${who}phone must start with + and the country code, e.g. +12015550123.`;
   }
   return null;
 }

@@ -33,6 +33,22 @@ answer the passenger request and the approval, `POST /payments`, then `POST /pay
 | `live` (default) | OpenAI | Duffel (test mode) | Cashfree sandbox | Firebase |
 | `offline` | `OfflineLLM` | `OfflineFlightProvider` | `OfflinePaymentProvider` | demo user |
 
+### Without Docker (any local PostgreSQL)
+
+Docker is optional. With a local PostgreSQL server, create the role and database once:
+
+```bash
+psql -U postgres -c "CREATE ROLE flight_user LOGIN CREATEDB PASSWORD 'flight_password';"
+psql -U postgres -c "CREATE DATABASE flight_booking OWNER flight_user;"
+uv run alembic upgrade head
+PROVIDER_MODE=offline AUTH_MODE=demo uv run uvicorn app.main:app --port 8000
+uv run pytest -q
+```
+
+The tests create their own `flight_booking_test` database. To use a different server or user, set
+`DATABASE_URL` for the app and `TEST_DATABASE_SERVER_URL` (no database name) for the tests.
+Packages install from PyPI with `uv sync` (or `pip install -e .`).
+
 ## Run everything locally (Docker, live mode)
 
 Needs `.env` (copy `.env.example`, fill the LLM / Duffel / Cashfree keys) and the `agent-console` repo next to this one (its Firebase-gated copy of the UI). Without it, use the `web/` UI at http://localhost:8000/ with `AUTH_MODE=demo`.

@@ -16,7 +16,8 @@ from datetime import date
 from pathlib import Path
 
 TEST_DB = "flight_booking_test"
-BASE_URL = "postgresql+asyncpg://flight_user:flight_password@localhost:5432"
+# Any PostgreSQL server works (Docker or a local install); override with TEST_DATABASE_SERVER_URL.
+BASE_URL = os.environ.get("TEST_DATABASE_SERVER_URL", "postgresql+asyncpg://flight_user:flight_password@localhost:5432")
 os.environ["DATABASE_URL"] = f"{BASE_URL}/{TEST_DB}"
 os.environ["DB_NULL_POOL"] = "1"
 os.environ.setdefault("FLIGHT_VENDOR_TOKEN", "test-token")
