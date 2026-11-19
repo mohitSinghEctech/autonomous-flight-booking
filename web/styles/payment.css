@@ -1,0 +1,84 @@
+/* ===== Payment sheet: our frame around the provider's checkout ============ */
+body.sheet-open { overflow: hidden; }
+
+.ps-backdrop {
+  position: fixed; inset: 0; z-index: 80;
+  display: grid; place-items: center; padding: 20px;
+  background: rgb(var(--deep-rgb) / 0.72);
+  backdrop-filter: blur(6px);
+  animation: fade .2s ease both;
+}
+.ps-sheet {
+  width: min(520px, 100%); max-height: calc(100dvh - 40px);
+  display: flex; flex-direction: column;
+  background: var(--panel-solid); border: 1px solid var(--line-2); border-radius: 20px;
+  box-shadow: 0 40px 100px -30px rgb(0 0 0 / 0.8);
+  overflow: hidden;
+  animation: rise .3s var(--ease) both;
+}
+.ps-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 12px; padding: 16px 18px; border-bottom: 1px solid var(--line); }
+.ps-lock { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: rgb(var(--green-rgb) / 0.12); font-size: 16px; }
+.ps-head h3 { font-size: 16px; }
+.ps-head small { display: block; font-size: 12.5px; color: var(--text-3); }
+.ps-amount { font-family: var(--font-display); font-size: 20px; }
+.ps-close { border: 0; background: transparent; color: var(--text-3); font-size: 16px; width: 32px; height: 32px; border-radius: 8px; }
+.ps-close:hover { background: rgb(var(--line-rgb) / 0.1); color: var(--text); }
+
+.ps-view:not(:empty) { padding: 26px 22px; display: grid; gap: 14px; justify-items: center; text-align: center; }
+.ps-checkout { flex: 1; min-height: 0; overflow-y: auto; }
+.ps-checkout:not(:empty) { min-height: 420px; }
+.ps-wait { display: inline-flex; align-items: center; gap: 12px; font-weight: 500; color: var(--text); font-size: 15px; }
+.ps-hint { color: var(--text-3); font-size: 13.5px; max-width: 340px; }
+.ps-error { color: var(--red); font-size: 14px; }
+
+.ps-done { display: grid; justify-items: center; gap: 6px; }
+.ps-done h4 { margin: 6px 0 0; font-family: var(--font-display); font-size: 20px; font-weight: 600; }
+.ps-done p { color: var(--text-2); font-size: 14px; }
+.ps-tick {
+  display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%;
+  background: rgb(var(--green-rgb) / 0.16); color: var(--green); font-size: 30px; font-weight: 700;
+  animation: pop .45s var(--ease) both;
+}
+.ps-done.is-bad .ps-tick { background: rgb(255 90 116 / 0.15); color: var(--red); }
+
+.ps-actions { display: flex; gap: 10px; width: 100%; }
+.ps-actions button { flex: 1; }
+.ps-primary, .ps-secondary { padding: 11px 16px; border-radius: 12px; font-weight: 600; font-size: 14.5px; }
+.ps-primary { border: 0; background: var(--primary); color: var(--bg); }
+.ps-secondary { border: 1px solid var(--line-2); background: transparent; color: var(--text-2); }
+.ps-secondary:hover { color: var(--text); background: rgb(var(--line-rgb) / 0.08); }
+
+/* trip card: small link under the action, spinner while confirming */
+.ts-extra { justify-self: start; margin-top: -6px; }
+.ts-wait { display: grid; place-items: center; width: 46px; }
+.trip-status.is-bad { --tone: 255 90 116; }
+.trip-status.is-bad .ts-action { background: var(--primary); }
+
+/* ---- demo stand-in for Cashfree's checkout -------------------------------- */
+.mock-checkout { padding: 22px; display: grid; gap: 14px; background: #fbfcfe; color: #1b2433; min-height: 420px; align-content: start; }
+.mc-brand { display: flex; align-items: baseline; gap: 8px; }
+.mc-brand b { font-size: 18px; color: #5a2fd4; }
+.mc-brand span { font-size: 12px; color: #7a8599; text-transform: uppercase; letter-spacing: .08em; }
+.mc-amount { font-size: 30px; font-weight: 700; }
+.mc-order { font-family: var(--font-mono); font-size: 12px; color: #7a8599; word-break: break-all; }
+.mc-methods { display: flex; gap: 6px; }
+.mc-methods span { padding: 6px 12px; border-radius: 8px; border: 1px solid #dfe4ee; font-size: 13px; color: #55607a; }
+.mc-methods .is-on { border-color: #5a2fd4; color: #5a2fd4; background: #f2edff; }
+.mc-card { display: flex; justify-content: space-between; padding: 14px; border-radius: 10px; border: 1px solid #dfe4ee; font-family: var(--font-mono); font-size: 14px; color: #3a455c; }
+.mc-pay { border: 0; border-radius: 10px; padding: 13px; background: #5a2fd4; color: #fff; font-weight: 600; font-size: 15px; }
+.mc-fail { border: 0; background: none; color: #c43d5a; font-size: 13px; text-decoration: underline; }
+.mc-note { font-size: 12px; color: #7a8599; text-align: center; }
+
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: none; opacity: 1; } }
+
+@media (max-width: 560px) {
+  .ps-backdrop { padding: 0; align-items: end; }
+  .ps-sheet { width: 100%; max-height: 92dvh; border-radius: 20px 20px 0 0; }
+}
+
+/* Cashfree's inline checkout lays itself out for ~860px; give it room while it shows */
+.ps-backdrop[data-phase='checkout'] .ps-sheet { width: min(900px, 100%); height: min(760px, calc(100dvh - 40px)); }
+.ps-backdrop[data-phase='checkout'] .ps-checkout { min-height: 0; height: 100%; }
+.ps-checkout iframe { width: 100% !important; height: 100% !important; min-height: 600px; border: 0; }
+.ps-backdrop[data-phase='checkout'] .ps-checkout { display: flex; justify-content: center; background: #f4f5f8; }

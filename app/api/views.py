@@ -10,6 +10,7 @@ from datetime import datetime
 
 from app.db import models as db
 from app.models import BookingLifecycle, Flight
+from app.core.settings import settings
 from app.providers import all_providers
 
 
@@ -156,7 +157,7 @@ def payment_view(payment: db.Payment) -> dict:
         "amount": float(payment.amount),
         "currency": payment.currency,
         "checkout": {
-            "provider": "cashfree",
+            "provider": "mock" if settings.provider_mode == "offline" else "cashfree",
             "mode": provider.mode,
             "payment_session_id": payment.payment_session_id,
         } if is_open and payment.payment_session_id else None,

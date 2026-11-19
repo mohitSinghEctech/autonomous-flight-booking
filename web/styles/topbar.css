@@ -1,0 +1,48 @@
+/* ===== Top bar: brand · actions (journey lives in journey.css) ================================ */
+.topbar {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 24px;
+  padding: 16px 0;
+}
+
+.brand { display: flex; align-items: baseline; gap: 10px; white-space: nowrap; }
+.brand-mark { color: var(--primary); font-size: 18px; text-shadow: 0 0 14px var(--primary-glow); }
+.brand-name { font-family: var(--font-display); font-weight: 700; font-size: 20px; letter-spacing: 0.08em; }
+.brand-sub { color: var(--text-3); font-size: 13px; }
+
+.top-actions { display: flex; align-items: center; gap: 8px; }
+.live-pill {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 5px 11px; border-radius: 999px; font-size: 12.5px; color: var(--text-2);
+  border: 1px solid var(--line-2);
+}
+.live-pill::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
+.live-pill[data-state='warn']::before { background: var(--amber); animation: blink .7s infinite; }
+.top-link {
+  border: 0; background: transparent; color: var(--text-2); text-decoration: none;
+  padding: 6px 10px; border-radius: 8px; font-size: 13.5px;
+}
+.top-link:hover { color: var(--text); background: rgb(var(--line-rgb) / 0.1); }
+
+/* thin progress line while ATLAS works */
+.busy-line {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 2px; overflow: hidden; opacity: 0;
+  transition: opacity .3s;
+}
+.busy-line::after {
+  content: ''; position: absolute; top: 0; bottom: 0; width: 35%;
+  background: linear-gradient(90deg, transparent, var(--primary), transparent);
+  animation: slide 1.3s ease-in-out infinite;
+}
+.topbar.is-busy .busy-line { opacity: 1; }
+
+@keyframes slide { from { left: -35%; } to { left: 100%; } }
+@keyframes blink { 50% { opacity: .3; } }
+
+@media (max-width: 860px) {
+  .topbar { grid-template-columns: 1fr auto; gap: 8px 12px; padding: 12px 0; }
+  .brand-sub, .live-pill { display: none; }
+}

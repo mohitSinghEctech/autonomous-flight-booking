@@ -23,9 +23,14 @@ logger = logging.getLogger(__name__)
 
 llm_semaphore = asyncio.Semaphore(3)
 
-client = AsyncOpenAI(
-    api_key=settings.llm_api_key,
-)
+if settings.provider_mode == "offline":
+    from app.providers.offline import OfflineLLM
+
+    client = OfflineLLM()
+else:
+    client = AsyncOpenAI(
+        api_key=settings.llm_api_key,
+    )
 
 
 NO_ARGUMENTS = {

@@ -5,9 +5,37 @@ FastAPI · LangGraph · LLM tool calling · MCP · PostgreSQL (SQLAlchemy async 
 
 **LLM proposes; application validates, authorizes and executes.**
 
-## Run everything locally (Docker)
+## Run offline (no internet, no API keys)
 
-Needs `.env` (copy `.env.example`, fill the LLM / Duffel / Cashfree keys) and the `agent-console` repo next to this one.
+`PROVIDER_MODE=offline` swaps the four internet services for local stand-ins in
+`app/providers/offline.py`: a deterministic tool-calling LLM, a Duffel-like flight provider
+(three offers for any route and date), a Cashfree-like payment provider (a sync after
+creating a payment returns `paid`) and the MCP search. FastAPI, LangGraph, the services and
+Postgres stay real. Sign-in must be `AUTH_MODE=demo` (Firebase needs the internet).
+
+```bash
+docker compose up -d postgres
+uv run alembic upgrade head
+PROVIDER_MODE=offline AUTH_MODE=demo uv run uvicorn app.main:app --port 8000
+```
+
+Open **http://localhost:8000/** (the UI in `web/`, served by the API at `/web/`) and type
+`Find flights from BOM to LHR on 2027-01-10 for 1 passenger`. The payment step shows a local
+demo checkout instead of Cashfree's.
+
+Or with curl: `POST /api/sessions`, open `GET /api/sessions/{id}/stream`, send
+`POST /api/sessions/{id}/messages` with `{"text": "Find flights from BOM to LHR on 2027-01-10 for 1 passenger", "client_id": "msg-0001"}`,
+answer the passenger request and the approval, `POST /payments`, then `POST /payments/{id}/sync` → booking `confirmed`.
+`tests/test_offline_mode.py` runs this flow end to end. The tests use the same offline classes (`tests/fakes.py`).
+
+| Mode | LLM | Flights | Payments | Auth |
+|---|---|---|---|---|
+| `live` (default) | OpenAI | Duffel (test mode) | Cashfree sandbox | Firebase |
+| `offline` | `OfflineLLM` | `OfflineFlightProvider` | `OfflinePaymentProvider` | demo user |
+
+## Run everything locally (Docker, live mode)
+
+Needs `.env` (copy `.env.example`, fill the LLM / Duffel / Cashfree keys) and the `agent-console` repo next to this one (its Firebase-gated copy of the UI). Without it, use the `web/` UI at http://localhost:8000/ with `AUTH_MODE=demo`.
 
 ```bash
 docker compose up -d --build
@@ -36,7 +64,7 @@ docker compose down               # stop (data kept in the postgres_data volume)
 docker compose up -d postgres
 uv run alembic upgrade head
 uv run uvicorn app.main:app --reload --port 8000
-uv run pytest -q                  # 135 integration tests (need postgres up)
+uv run pytest -q                  # 141 integration tests, all offline (need postgres up)
 ```
 
 ## Deploy: database migrations
@@ -70,4 +98,9 @@ rather than deleting booking history. From then on, fix forward instead of rolli
 A successful downgrade also drops the travellers' copies, so bookings show the
 current saved-passenger details again.
 
-Docs: [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) · [`docs/api-layer.md`](docs/api-layer.md) · [`docs/interview-guide.html`](docs/interview-guide.html) · [`docs/saved-passengers-plan.md`](docs/saved-passengers-plan.md) · contract: `agent-console/docs/api-contract.md`
+## Web UI (`web/`)
+
+Plain HTML, CSS and JavaScript modules, no build step and no framework. The API serves it at
+`/web/` (same origin). Data flows one way: SSE events → `api/transport.js` → `state/reducer.js`
+→ components; actions (message, approval, passengers, pay) are POSTs. Here it runs without
+sign-in (`src/host.js`, the API in `AUTH_MODE=demo`).
