@@ -1,0 +1,126 @@
+/* ===== Account area: Bookings · Passengers · Profile ======================
+   Replaces the workspace while open (.app[data-view='account']); the top bar stays.
+   Reuses .pane, .tab, .chip, .btn-primary and the .pf-* form styles.            */
+
+.account { display: none; grid-row: 3; overflow-y: auto; }
+.app[data-view='account'] .workspace,
+.app[data-view='account'] .tabs { display: none; }
+.app[data-view='account'] .account { display: flex; }
+
+/* the top bar button */
+.account-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 34px; padding: 0 12px 0 6px; border-radius: 10px;
+  border: 1px solid var(--line-2); background: transparent; color: var(--text-2); font-size: 13.5px;
+  transition: color .2s, border-color .2s, background .2s;
+}
+.account-btn:hover { color: var(--text); border-color: var(--primary); background: rgb(var(--primary-rgb) / 0.08); }
+.account-avatar {
+  display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%;
+  background: rgb(var(--primary-rgb) / 0.16); color: var(--primary); font-size: 13px;
+}
+.app[data-view='account'] .account-btn { color: var(--primary); border-color: var(--primary); }
+
+/* header row inside the pane: back + section nav */
+.acct-bar {
+  position: sticky; top: 0; z-index: 2;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  padding: 14px 20px; border-bottom: 1px solid var(--line); background: var(--panel-solid);
+}
+.acct-nav {
+  display: grid; grid-template-columns: repeat(3, auto); gap: 4px; padding: 4px;
+  border: 1px solid var(--line); border-radius: 999px;
+}
+.acct-nav .tab {
+  border: 0; background: transparent; color: var(--text-2); text-decoration: none;
+  padding: 7px 16px; border-radius: 999px; font-weight: 600; font-size: 14px;
+}
+.acct-nav .tab:hover { color: var(--text); }
+.acct-nav .tab.is-active { background: rgb(var(--primary-rgb) / 0.14); color: var(--text); }
+
+.acct-outlet { width: 100%; max-width: 820px; margin: 0 auto; padding: 20px; }
+.acct-screen, .acct-body { display: grid; gap: 14px; }
+
+.acct-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.acct-title { font-size: 22px; }
+.acct-title:focus { outline: none; }
+.acct-back { color: var(--text-3); font-size: 13.5px; text-decoration: none; justify-self: start; }
+.acct-back:hover { color: var(--primary); }
+.acct-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.acct-link-btn { display: inline-block; text-decoration: none; }
+.acct-danger {
+  border: 1px solid rgb(255 90 116 / 0.5); background: transparent; color: var(--red);
+  padding: 9px 18px; border-radius: 999px; font-weight: 600; font-size: 14px;
+}
+.acct-danger:hover:not(:disabled) { background: rgb(255 90 116 / 0.1); }
+.acct-footer { display: grid; gap: 8px; }
+.account button:disabled { opacity: .55; cursor: not-allowed; }
+
+/* lists */
+.acct-list, .acct-plain { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.acct-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 14px 16px; border-radius: 12px; text-decoration: none; color: var(--text);
+  border: 1px solid var(--line); background: rgb(var(--deep-rgb) / 0.35);
+  transition: border-color .2s, background .2s;
+}
+.acct-row:hover { border-color: rgb(var(--primary-rgb) / 0.5); background: rgb(var(--primary-rgb) / 0.05); }
+.acct-row-main { display: grid; gap: 3px; min-width: 0; }
+.acct-row-sub { font-size: 13px; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acct-row-side { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.acct-route { font-family: var(--font-display); font-size: 17px; }
+.acct-ref { font-family: var(--font-mono); font-size: 12.5px; color: var(--text-2); }
+.acct-amount { font-family: var(--font-display); }
+.acct-more { justify-self: center; }
+
+/* status pill: amber = needs you, green = done, red = stopped, grey = over */
+.acct-pill {
+  font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; white-space: nowrap;
+  background: rgb(var(--line-rgb) / 0.12); color: var(--text-2);
+}
+.acct-pill[data-status='held'], .acct-pill[data-status='awaiting_payment'] { background: rgb(var(--amber-rgb) / 0.15); color: var(--amber); }
+.acct-pill[data-status='confirmed'] { background: rgb(var(--green-rgb) / 0.15); color: var(--green); }
+.acct-pill[data-status='ticketing_failed'] { background: rgb(255 90 116 / 0.15); color: var(--red); }
+
+/* cards + facts */
+.acct-card { display: grid; gap: 10px; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: rgb(var(--deep-rgb) / 0.35); }
+.acct-card-title { font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+.acct-card a { color: var(--primary); }
+.acct-value { font-size: 15px; color: var(--text); }
+.acct-leg { display: flex; align-items: center; gap: 14px; }
+.acct-leg b { display: block; font-family: var(--font-display); font-size: 24px; }
+.acct-leg small { font-size: 12.5px; color: var(--text-3); }
+.acct-leg .is-end { text-align: right; }
+.acct-leg-line { flex: 1; height: 2px; border-radius: 2px; background: linear-gradient(90deg, var(--line-3), var(--primary), var(--line-3)); }
+.acct-facts { display: grid; grid-template-columns: max-content 1fr; gap: 8px 18px; margin: 0; padding: 16px; border: 1px solid var(--line); border-radius: 12px; }
+.acct-facts dt { color: var(--text-3); font-size: 13.5px; }
+.acct-facts dd { margin: 0; font-size: 14px; overflow-wrap: anywhere; }
+
+.acct-form { display: grid; gap: 14px; }
+
+/* loading / empty / error */
+.acct-state {
+  display: grid; justify-items: center; gap: 8px; text-align: center;
+  padding: 40px 20px; border: 1px dashed var(--line-2); border-radius: 12px; color: var(--text-2);
+}
+.acct-state h3 { font-size: 18px; color: var(--text); }
+.acct-state p { max-width: 46ch; font-size: 14px; }
+.acct-state.is-error h3 { color: var(--amber); }
+.acct-endpoint { font-family: var(--font-mono); font-size: 13px; padding: 4px 10px; border-radius: 8px; background: rgb(var(--deep-rgb) / 0.6); color: var(--text); }
+.acct-spinner {
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 2px solid var(--line-2); border-top-color: var(--primary); animation: acct-spin .8s linear infinite;
+}
+@keyframes acct-spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 860px) {
+  .account-label { display: none; }
+  .account-btn { padding: 0 5px; }
+  .acct-bar { padding: 10px 12px; }
+  .acct-nav { width: 100%; grid-template-columns: repeat(3, 1fr); }
+  .acct-nav .tab { text-align: center; padding: 8px; }
+  .acct-outlet { padding: 14px 12px; }
+  .acct-row { flex-direction: column; align-items: stretch; }
+  .acct-row-side { justify-content: space-between; }
+  .acct-form .pf-grid { grid-template-columns: minmax(0, 1fr); }
+}

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ATLAS · Flight assistant</title>
+  <meta name="color-scheme" content="dark">
+  <meta name="robots" content="noindex,nofollow">
+
+
+  <link rel="stylesheet" href="styles/tokens.css">
+  <link rel="stylesheet" href="styles/base.css">
+  <link rel="stylesheet" href="styles/layout.css">
+  <link rel="stylesheet" href="styles/topbar.css">
+  <link rel="stylesheet" href="styles/flights.css">
+  <link rel="stylesheet" href="styles/journey.css">
+  <link rel="stylesheet" href="styles/trip.css">
+  <link rel="stylesheet" href="styles/chat.css">
+  <link rel="stylesheet" href="styles/settings.css">
+  <link rel="stylesheet" href="styles/payment.css">
+  <link rel="stylesheet" href="styles/account.css">
+
+  <script type="module" src="src/main.js"></script>
+</head>
+<body>
+  <div class="app" data-tab="chat">
+    <header class="topbar" id="topbar"></header>
+    <nav class="tabs" id="tabs" aria-label="Panes"></nav>
+
+    <main class="workspace">
+      <section class="pane flights is-empty" id="flights" aria-label="Flights"></section>
+      <section class="pane chat" id="chat" aria-label="Chat with ATLAS"></section>
+    </main>
+
+    <section class="pane account" id="account" aria-label="My account"></section>
+  </div>
+</body>
+</html>

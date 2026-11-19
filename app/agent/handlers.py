@@ -19,7 +19,9 @@ from app.api.views import booking_view, flight_view, passenger_view, payment_vie
 from app.core.errors import AppError, InvalidToolArguments, InvalidUpstreamResponse
 from app.db import models as db
 from app.db.session import SessionLocal
+from app.core.settings import settings
 from app.mcp.client import FlightMCPClient
+from app.providers import all_providers
 from app.models import (
     BookFlight,
     Booking,
@@ -33,7 +35,12 @@ from app.services.booking import BookingService
 from app.services.payment import PaymentService
 
 
-flight_mcp_client = FlightMCPClient()
+if settings.provider_mode == "offline":
+    from app.providers.offline import OfflineMCPClient
+
+    flight_mcp_client = OfflineMCPClient(all_providers.flight_provider)
+else:
+    flight_mcp_client = FlightMCPClient()
 
 ACTIVE_LIFECYCLES = {"held", "awaiting_payment"}
 

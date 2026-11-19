@@ -18,6 +18,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
+    # live: OpenAI, Duffel, Cashfree. offline: local stand-ins (app/providers/offline.py), no internet.
+    provider_mode: Literal["live", "offline"] = "live"
+
     log_level: str = "INFO"
     cors_origins: str = ""
 
@@ -36,7 +39,7 @@ class Settings(BaseSettings):
     cashfree_test_currency: str | None = None
 
     auth_mode: Literal["firebase", "demo"] = "firebase"
-    firebase_project_id: str = "mks-agent-console"
+    firebase_project_id: str = "demo-flight-booking"
     firebase_auth_emulator_host: str | None = None
     demo_user_id: str = "eeb6ff6a-c66f-4874-a5aa-7c773962e14e"
 
