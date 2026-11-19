@@ -11,6 +11,7 @@ import asyncio
 import os
 import socket
 import subprocess
+import sys
 import uuid
 from datetime import date
 from pathlib import Path
@@ -59,7 +60,7 @@ def test_database():
             await conn.close()
 
     asyncio.run(create())
-    subprocess.run(["uv", "run", "alembic", "upgrade", "head"], cwd=PROJECT, check=True, env=os.environ.copy(),
+    subprocess.run([sys.executable, "-m", "alembic", "upgrade", "head"], cwd=PROJECT, check=True, env=os.environ.copy(),
                    capture_output=True)
 
 

@@ -47,7 +47,16 @@ uv run pytest -q
 
 The tests create their own `flight_booking_test` database. To use a different server or user, set
 `DATABASE_URL` for the app and `TEST_DATABASE_SERVER_URL` (no database name) for the tests.
-Packages install from PyPI with `uv sync` (or `pip install -e .`).
+
+Without `uv` (Python 3.12+ and pip only):
+
+```bash
+python3 -m venv .venv && . .venv/bin/activate
+pip install -e . pytest pytest-asyncio
+alembic upgrade head
+PROVIDER_MODE=offline AUTH_MODE=demo uvicorn app.main:app --port 8000
+python -m pytest -q
+```
 
 ## Run everything locally (Docker, live mode)
 
