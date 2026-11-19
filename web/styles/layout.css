@@ -1,0 +1,74 @@
+/*
+  Desktop                                          Phone (≤ 860px)
+  ┌ ATLAS                         live · acct · ⚙ ┐   ┌ ATLAS          ⚙ ┐
+  ├ flights ─────────────────┬ chat ────────────┤   │ [ Chat | Flights ]│
+  │ journey (this trip)      │ messages + steps │   │ Step 3 of 6 (on   │
+  │ trip / pick / flights    │ approval card    │   │ Flights tab only) │
+  │                          │ quick replies    │   └───────────────────┘
+  │                          │ input            │
+  └──────────────────────────┴──────────────────┘
+*/
+.app {
+  height: 100dvh;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 0 20px 20px;
+}
+
+.topbar { grid-row: 1; }
+.tabs { grid-row: 2; }
+.workspace {
+  grid-row: 3;               /* fixed rows: the hidden tabs must not shift the panes up */
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(380px, 1fr);
+  gap: var(--gap);
+  min-height: 0;
+}
+
+.pane {
+  min-height: 0; min-width: 0;
+  display: flex; flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.pane-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line);
+}
+.pane-title { font-size: 19px; }
+.pane-sub { font-size: 13px; color: var(--text-3); margin-top: 2px; }
+
+.tabs { display: none; }
+
+@media (max-width: 860px) {
+  .app { padding: 0 12px 12px; }
+  .workspace { grid-template-columns: minmax(0, 1fr); }
+  .app[data-tab='chat'] .flights,
+  .app[data-tab='flights'] .chat { display: none; }
+
+  .tabs {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 4px;
+    padding: 4px; margin-bottom: 12px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 999px;
+  }
+  .tab {
+    position: relative; border: 0; background: transparent; color: var(--text-2);
+    padding: 9px; border-radius: 999px; font-weight: 600; font-size: 14px;
+  }
+  .tab.is-active { background: rgb(var(--primary-rgb) / 0.14); color: var(--text); }
+  .tab-badge:not(:empty) {
+    margin-left: 6px; font-size: 11.5px; padding: 1px 7px; border-radius: 999px;
+    background: var(--line-2); color: var(--text);
+  }
+  .tab.has-news::after {
+    content: ''; position: absolute; top: 9px; right: calc(50% - 44px);
+    width: 7px; height: 7px; border-radius: 50%; background: var(--primary);
+    box-shadow: 0 0 10px var(--primary);
+  }
+}

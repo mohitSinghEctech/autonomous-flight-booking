@@ -1,0 +1,138 @@
+/* ===== Trip view (flights pane once a seat is held) ======================== */
+.flights.is-trip .feature-slot,
+.flights.is-trip .searching,
+.flights.is-trip .list-label,
+.flights.is-trip .flist,
+.flights.is-trip .empty { display: none !important; }
+
+.head-right { display: flex; align-items: center; gap: 10px; }
+.pane-toggle {
+  border: 1px solid var(--line-2); background: transparent; color: var(--text-2);
+  padding: 7px 14px; border-radius: 999px; font-size: 13px; font-weight: 500;
+}
+.pane-toggle:hover { color: var(--text); border-color: var(--line-3); }
+
+.trip { display: grid; gap: 14px; animation: rise .35s var(--ease) both; }
+
+/* ---- 1. status + next action --------------------------------------------- */
+.trip-status {
+  --tone: var(--amber-rgb);
+  display: grid; gap: 16px; padding: 18px;
+  border-radius: var(--radius);
+  border: 1px solid rgb(var(--tone) / 0.5);
+  background: linear-gradient(150deg, rgb(var(--tone) / 0.14), rgb(var(--tone) / 0.02) 65%), var(--panel-solid);
+}
+.trip-status.is-ok { --tone: var(--green-rgb); }
+.trip-status.pulse-in { animation: pulse-in 1.2s var(--ease); }
+
+.ts-main { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px; }
+.ts-icon {
+  display: grid; place-items: center; width: 46px; height: 46px; border-radius: 14px;
+  background: rgb(var(--tone) / 0.16); color: rgb(var(--tone)); font-size: 22px; font-weight: 700;
+}
+.trip-status h3 { font-size: 19px; }
+.trip-status p { color: var(--text-2); font-size: 14px; margin-top: 2px; }
+.ts-action { display: inline-flex; align-items: center; gap: 8px; padding: 11px 20px; font-size: 15px; white-space: nowrap; }
+.trip-status.is-warn .ts-action { background: rgb(var(--tone)); box-shadow: 0 8px 22px -10px rgb(var(--tone)); }
+
+.ts-steps { list-style: none; margin: 0; padding: 0; display: flex; align-items: center; }
+.ts-steps li { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-3); }
+.ts-steps li + li::before { content: ''; width: 36px; height: 2px; margin: 0 10px; border-radius: 2px; background: var(--line-2); }
+.ts-steps i {
+  display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%;
+  border: 1.5px solid var(--line-3); font-style: normal; font-size: 11px;
+}
+.ts-steps li.is-done { color: var(--text-2); }
+.ts-steps li.is-done i { background: rgb(var(--tone) / 0.2); border-color: rgb(var(--tone) / 0.6); color: rgb(var(--tone)); }
+.ts-steps li.is-done + li::before, .ts-steps li.is-current::before { background: rgb(var(--tone) / 0.5); }
+.ts-steps li.is-current { color: var(--text); font-weight: 600; }
+.ts-steps li.is-current i { border-color: rgb(var(--tone)); box-shadow: 0 0 0 4px rgb(var(--tone) / 0.15); background: rgb(var(--tone)); }
+
+/* ---- 2. ticket -------------------------------------------------------------- */
+.ticket {
+  position: relative;
+  display: grid; grid-template-columns: minmax(0, 1fr) 190px;
+  border-radius: var(--radius);
+  background: var(--panel-solid);
+  border: 1px solid var(--line-2);
+  overflow: hidden;
+}
+.ticket.is-confirmed { border-color: rgb(var(--green-rgb) / 0.45); }
+
+.tk-main { padding: 18px 20px; display: grid; gap: 16px; }
+.tk-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.tk-airline { display: block; font-size: 16px; font-weight: 600; }
+.tk-date { font-size: 13px; color: var(--text-3); }
+.tk-hold, .tk-stamp {
+  font-family: var(--font-display); font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  padding: 5px 10px; border-radius: 8px;
+}
+.tk-hold { color: var(--amber); border: 1.5px dashed rgb(var(--amber-rgb) / 0.6); }
+.tk-stamp { color: var(--green); border: 2px solid var(--green); transform: rotate(-4deg); box-shadow: 0 0 18px -6px var(--green-glow); }
+
+.tk-route { display: grid; grid-template-columns: auto minmax(70px, 1fr) auto; align-items: center; gap: 14px; }
+.tk-end { display: grid; }
+.tk-end.right { text-align: right; }
+.tk-end b { font-family: var(--font-display); font-size: 30px; font-weight: 600; line-height: 1.1; }
+.tk-end span { font-family: var(--font-display); font-size: 15px; font-weight: 600; color: var(--primary); }
+.tk-end small { font-size: 12px; color: var(--text-3); max-width: 150px; }
+.tk-path { display: grid; justify-items: center; gap: 9px; text-align: center; }
+.tk-path small { font-size: 12.5px; color: var(--text-3); }
+.tk-path small.has-stop { color: var(--amber); }
+.tk-line { position: relative; width: 100%; height: 2px; background: repeating-linear-gradient(90deg, var(--line-3) 0 6px, transparent 6px 11px); }
+.tk-line i { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -55%); font-style: normal; color: var(--primary); background: var(--panel-solid); padding: 0 6px; font-size: 15px; }
+
+.tk-facts { margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding-top: 14px; border-top: 1px dashed var(--line-2); }
+.fact dt { font-size: 11.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+.fact dd { margin: 2px 0 0; font-size: 14px; color: var(--text); }
+
+/* the stub, torn off along a perforated edge */
+.tk-stub {
+  position: relative; display: grid; align-content: center; gap: 14px;
+  padding: 18px 20px; border-left: 2px dashed var(--line-2);
+  background: rgb(var(--primary-rgb) / 0.05);
+}
+.tk-stub::before, .tk-stub::after {   /* the punched half-circles */
+  content: ''; position: absolute; left: -11px; width: 20px; height: 20px; border-radius: 50%;
+  background: var(--panel); border: 1px solid var(--line-2);
+}
+.tk-stub::before { top: -11px; }
+.tk-stub::after { bottom: -11px; }
+.fact.ref dd { font-family: var(--font-mono); font-size: 22px; font-weight: 500; letter-spacing: .08em; color: var(--text); }
+.fact.total dd { font-family: var(--font-display); font-size: 22px; font-weight: 600; }
+.tk-id { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); word-break: break-all; }
+
+/* ---- 3. payment -------------------------------------------------------------- */
+.pay-card { padding: 16px 20px; border-radius: var(--radius); border: 1px solid var(--line); background: rgb(var(--line-rgb) / 0.04); display: grid; gap: 10px; }
+.pay-card h4 { margin: 0 0 2px; font-family: var(--font-display); font-size: 15px; font-weight: 600; }
+.pc-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 14px; }
+.pc-row > span { color: var(--text-3); }
+.pc-row b { font-weight: 500; text-align: right; }
+.pc-row code { font-family: var(--font-mono); font-size: 12px; color: var(--text-2); word-break: break-all; }
+.pay-pill { font-size: 12.5px; font-weight: 600; padding: 3px 10px; border-radius: 999px; background: rgb(var(--line-rgb) / 0.12); color: var(--text-2); }
+.pay-pill.is-warn { background: rgb(var(--amber-rgb) / 0.15); color: var(--amber); }
+.pay-pill.is-ok { background: rgb(var(--green-rgb) / 0.15); color: var(--green); }
+.pay-pill.is-bad { background: rgb(255 90 116 / 0.15); color: var(--red); }
+
+/* ---- 4. quiet links ----------------------------------------------------------- */
+.trip-links { display: flex; justify-content: center; gap: 24px; padding: 4px 0 8px; }
+.link { border: 0; background: none; color: var(--text-3); font-size: 13.5px; padding: 4px; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-3); }
+.link:hover { color: var(--text); }
+.link.danger:hover { color: var(--red); }
+
+/* in the pick card while the hold is being placed */
+.holding { display: inline-flex; align-items: center; gap: 8px; color: var(--text-2); font-weight: 500; }
+
+/* ---- narrow pane -------------------------------------------------------------- */
+@container flights (max-width: 620px) {
+  .ts-main { grid-template-columns: auto minmax(0, 1fr); }
+  .ts-action { grid-column: 1 / -1; justify-content: center; }
+  .ticket { grid-template-columns: minmax(0, 1fr); }
+  .tk-stub { border-left: 0; border-top: 2px dashed var(--line-2); grid-template-columns: 1fr 1fr; align-items: end; }
+  .tk-stub::before { top: -11px; left: -11px; }
+  .tk-stub::after { top: -11px; bottom: auto; left: auto; right: -11px; }
+  .tk-id { grid-column: 1 / -1; }
+  .tk-facts { grid-template-columns: 1fr 1fr; }
+  .tk-end b { font-size: 26px; }
+  .tk-end small { display: none; }
+}

@@ -1,0 +1,45 @@
+/* ===== Booking journey: this session's trip, top of the flights pane ======= */
+.journey-bar {
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--line);
+}
+.journey-bar[hidden] { display: none; }
+
+/* six steps, one is "you are here" */
+.journey {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.jstep { display: flex; align-items: center; gap: 8px; color: var(--text-3); font-size: 13px; font-weight: 500; white-space: nowrap; }
+.jstep + .jstep { flex: 1; }
+.jstep + .jstep::before {
+  content: ''; flex: 1; min-width: 10px; height: 2px; margin-right: 6px;
+  background: var(--line-2); border-radius: 2px;
+}
+.jdot {
+  flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%;
+  border: 1.5px solid var(--line-3); font-size: 11.5px; font-weight: 600;
+  transition: all .3s var(--ease);
+}
+.jstep.is-done { color: var(--text-2); }
+.jstep.is-done .jdot { background: rgb(var(--primary-rgb) / 0.16); border-color: rgb(var(--primary-rgb) / 0.5); color: var(--primary); }
+.jstep.is-done + .jstep::before, .jstep.is-current::before { background: rgb(var(--primary-rgb) / 0.5); }
+.jstep.is-current { color: var(--text); font-weight: 600; }
+.jstep.is-current .jdot {
+  background: var(--primary); border-color: var(--primary); color: var(--bg);
+  box-shadow: 0 0 0 4px rgb(var(--primary-rgb) / 0.15), 0 0 14px var(--primary-glow);
+}
+.journey-compact { display: none; margin: 0; color: var(--primary); font-weight: 600; font-size: 13.5px; }
+
+/* the pane is ~half the screen: only the current step keeps its label */
+@media (max-width: 1360px) {
+  .jlabel { display: none; }
+  .jstep.is-current .jlabel { display: inline; }
+}
+
+/* phone (flights tab): one line of text instead of dots */
+@media (max-width: 860px) {
+  .journey-bar { padding: 10px 16px; }
+  .journey { display: none; }
+  .journey-compact { display: block; }
+}

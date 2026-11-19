@@ -34,7 +34,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://flight_user:flight_password@postgres:5432/flight_booking
       AUTH_MODE: firebase
-      FIREBASE_PROJECT_ID: mks-agent-console
+      FIREBASE_PROJECT_ID: demo-flight-booking
       FIREBASE_AUTH_EMULATOR_HOST: web:9099
     ports:
       - "8000:8000"
